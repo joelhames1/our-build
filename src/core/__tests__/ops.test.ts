@@ -98,3 +98,16 @@ describe('ops', () => {
     expect(k2.kitchen?.sink).toBe('island');
   });
 });
+
+describe('adding stories to small houses', () => {
+  for (const t of ['cottage', 'bungalow', 'ranch', 'tiny_house'] as const) {
+    it(`${t}: stairs fit and every room is reachable`, () => {
+      const base = ok(blank(), [{ op: 'use_template', template: t }]).project;
+      const r = ok(base, [{ op: 'add_level' }]);
+      const bad = r.issues.filter((i) => i.rule.startsWith('stair') || i.rule === 'reach' || i.rule === 'geo.overlap');
+      expect(bad.map((i) => i.message)).toEqual([]);
+      const names = r.project.levels.flatMap((l) => l.rooms.map((x) => x.name));
+      expect(new Set(names).size).toBe(names.length);
+    });
+  }
+});

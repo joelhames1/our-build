@@ -453,7 +453,24 @@ function runOp(d: Draft, op: Op) {
 
 const clean = <T extends object>(o: T): Partial<T> => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as Partial<T>;
 
-function newRoom(d: Draft, spec: { id?: string; name: string; type: RoomType; kitchen?: Room['kitchen']; bath?: Room['bath'] }, rect: Rect): Room {
+/** Room names stay unique across the whole house ("Bedroom 3", not a second "Bedroom 2"). */
+function uniqueName(d: Draft, name: string, type: RoomType): { name: string; type: RoomType } {
+  const all = d.p.levels.flatMap((l) => l.rooms);
+  if (type === 'primary_bedroom' && all.some((r) => r.type === 'primary_bedroom')) {
+    type = 'bedroom';
+    name = 'Bedroom';
+  }
+  if (type === 'bath' && /^primary bath/i.test(name) && all.some((r) => /^primary bath/i.test(r.name))) name = 'Bath';
+  const taken = new Set(all.map((r) => r.name.toLowerCase()));
+  if (!taken.has(name.toLowerCase())) return { name, type };
+  const base = name.replace(/\s+\d+$/, '');
+  let n = 2;
+  while (taken.has(`${base} ${n}`.toLowerCase())) n++;
+  return { name: `${base} ${n}`, type };
+}
+
+function newRoom(d: Draft, given: { id?: string; name: string; type: RoomType; kitchen?: Room['kitchen']; bath?: Room['bath'] }, rect: Rect): Room {
+  const spec = { ...given, ...uniqueName(d, given.name, given.type) };
   const r: Room = { id: d.id('r', spec.id), name: spec.name, type: spec.type, rect, ceiling: 'flat', furnish: 'auto' };
   if (spec.kitchen) r.kitchen = spec.kitchen;
   else if (spec.type === 'kitchen') r.kitchen = { shape: 'L', island: false };
@@ -491,7 +508,7 @@ function reassignOpenings(level: Level, a: Room, b: Room) {
 }
 
 function resizeRoom(d: Draft, id: string, side: Side, by: number, mode: 'take' | 'push') {
-  const { room, level, li } = d.room(id);
+  const { room, level } = d.room(id);
   const b = roomBox(room);
   by = snap(by);
   if (!by) return;
@@ -499,7 +516,8 @@ function resizeRoom(d: Draft, id: string, side: Side, by: number, mode: 'take' |
     const axis = side === 'E' || side === 'W' ? 'x' : 'y';
     const at = side === 'E' ? b.x1 : side === 'W' ? b.x0 : side === 'N' ? b.y1 : b.y0;
     const dir = side === 'E' || side === 'N' ? 1 : -1;
-    const gone = stretchLevels([d.p.levels[li]], axis, at - (dir === 1 ? 0 : 0), by, dir);
+    // Stacked floors move together so their outside walls stay lined up.
+    const gone = stretchLevels(d.p.levels, axis, at, by, dir);
     if (gone.length) d.fixes.push(`Removed ${gone.length} room(s) squeezed to nothing.`);
     d.changed.add(room.id);
     d.log.push(`${by > 0 ? 'Grew' : 'Shrank'} ${room.name} ${by > 0 ? 'by' : 'by'} ${ftIn(Math.abs(by))} on the ${sideWord(side)}, shifting what's beyond.`);
@@ -795,22 +813,50 @@ function ensureStairs(d: Draft, level: Level, li: number) {
       }
     }
   }
+  let wall: Side | undefined;
+  let shape: 'straight' | 'L' | 'U' = lower?.shape ?? 'straight';
   if (!host) {
-    const order: RoomType[] = ['stair_hall', 'foyer', 'hall', 'loft', 'living', 'great_room', 'family', 'dining'];
-    const fits = (r: Room) => {
+    // Find a room where a stair fits along a wall and still leaves room to walk past it.
+    // Straight first; L and U stairs are more compact.
+    const order: RoomType[] = ['stair_hall', 'foyer', 'hall', 'loft', 'living', 'great_room', 'family', 'dining', 'bonus', 'office', 'mudroom'];
+    const shapes = (['straight', 'L', 'U'] as const).map((sh) => ({ sh, size: stairSize(sh, rl.floorToFloor, 3.5) }));
+    const pick = (r: Room): { wall: Side; dir: Side; shape: 'straight' | 'L' | 'U' } | null => {
       const b = roomBox(r);
-      return Math.max(b.x1 - b.x0, b.y1 - b.y0) >= size.along + 1 && Math.min(b.x1 - b.x0, b.y1 - b.y0) >= 3.5;
+      const w = b.x1 - b.x0;
+      const dd = b.y1 - b.y0;
+      const walk = r.type === 'stair_hall' || r.type === 'foyer' ? 2.5 : 3;
+      const exterior = new Set(rl.walls.filter((x) => x.kind === 'exterior' && (x.pos === r.id || x.neg === r.id)).map((x) => (x.axis === 'x' ? (x.pos === r.id ? 'S' : 'N') : x.pos === r.id ? 'W' : 'E')));
+      for (const { sh, size: sz } of shapes) {
+        const needLen = sz.along + (sh === 'straight' ? 3 : 1);
+        const needDepth = sz.across + walk;
+        const sides: { wall: Side; dir: Side; ok: boolean }[] = [
+          { wall: 'W', dir: 'N', ok: dd >= needLen && w >= needDepth },
+          { wall: 'E', dir: 'N', ok: dd >= needLen && w >= needDepth },
+          { wall: 'S', dir: 'E', ok: w >= needLen && dd >= needDepth },
+          { wall: 'N', dir: 'E', ok: w >= needLen && dd >= needDepth },
+        ];
+        // Prefer interior walls.
+        const ok = sides.filter((x) => x.ok).sort((a, b) => Number(exterior.has(a.wall)) - Number(exterior.has(b.wall)));
+        if (ok[0]) return { ...ok[0], shape: sh };
+      }
+      return null;
     };
-    for (const t of order) {
-      host = level.rooms.find((r) => r.type === t && fits(r));
-      if (host) break;
+    const candidates = [
+      ...order.flatMap((t) => level.rooms.filter((x) => x.type === t).sort((a, b) => roomArea(b) - roomArea(a))),
+      ...level.rooms.filter((x) => isEnclosed(x.type) && !order.includes(x.type) && !['bath', 'half_bath', 'closet', 'pantry', 'walk_in_closet'].includes(x.type)).sort((a, b) => roomArea(b) - roomArea(a)),
+    ];
+    for (const r of candidates) {
+      const hit = pick(r);
+      if (!hit) continue;
+      host = r;
+      wall = hit.wall;
+      dir = hit.dir;
+      shape = hit.shape;
+      break;
     }
-    host ??= level.rooms.filter((r) => isEnclosed(r.type) && fits(r)).sort((a, b) => roomArea(b) - roomArea(a))[0];
-    if (!host) throw new OpError(`There's no room on ${level.name} long enough for stairs (needs about ${Math.ceil(size.along)}').`);
-    const b = roomBox(host);
-    dir = b.y1 - b.y0 >= b.x1 - b.x0 ? 'N' : 'E';
+    if (!host) throw new OpError(`There's no room on ${level.name} big enough for stairs (even a compact U stair needs about ${Math.ceil(shapes[2].size.along + 1)}' × ${Math.ceil(shapes[2].size.across + 3)}'). Add a stair hall first, or make a room bigger.`);
   }
-  const s = { id: d.id('st'), room: host.id, shape: 'straight' as const, dir, width: 3.5, ...(at ? { at } : {}) };
+  const s = { id: d.id('st'), room: host.id, shape, dir, width: 3.5, ...(shape !== 'straight' ? { turn: 'right' as const } : {}), ...(at ? { at } : {}), ...(wall ? { wall } : {}) };
   level.stairs.push(s);
   d.changed.add(s.id);
   d.fixes.push(`Added stairs in ${host.name} to reach the new floor.`);

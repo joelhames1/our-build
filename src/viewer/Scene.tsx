@@ -33,6 +33,8 @@ export interface SceneHandle {
   /** Snapshot of the current view as a PNG data URL. */
   snapshot: (width?: number, height?: number) => string | null;
   frame: () => void;
+  /** The house (not the site) as a binary glTF. */
+  exportGLB: () => Promise<Blob | null>;
 }
 
 export const Scene = forwardRef<SceneHandle, SceneProps>(function Scene(props, ref) {
@@ -50,6 +52,15 @@ export const Scene = forwardRef<SceneHandle, SceneProps>(function Scene(props, r
       return g.gl.domElement.toDataURL('image/png');
     },
     frame: () => frameCamera(controls.current, resolved, view, true, props.orbit),
+    exportGLB: async () => {
+      const g = glRef.current;
+      const house = g?.scene.getObjectByName('house');
+      if (!house) return null;
+      const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js');
+      const exporter = new GLTFExporter();
+      const result = await exporter.parseAsync(house, { binary: true, onlyVisible: true });
+      return new Blob([result as ArrayBuffer], { type: 'model/gltf-binary' });
+    },
   }));
 
   const b = resolved.bounds;
@@ -156,8 +167,9 @@ export function frameCamera(c: CameraControls | null, resolved: Resolved, view: 
   const ang = (orbit * Math.PI) / 180;
   const fx = fx0 * Math.cos(ang) - fy0 * Math.sin(ang);
   const fy = fx0 * Math.sin(ang) + fy0 * Math.cos(ang);
-  const dist = span * 1.35 + 18;
-  const height = view === 'dollhouse' ? dist * 0.95 : Math.max(resolved.peak * 0.7, dist * 0.32);
-  const targetZ = view === 'dollhouse' ? 2 : resolved.peak * 0.35;
+  // Back off far enough for both the footprint and the height, with room for the floating UI.
+  const dist = Math.max(span * 1.45 + 22, resolved.peak * 2.6 + 12);
+  const height = view === 'dollhouse' ? dist * 0.95 : Math.max(resolved.peak * 0.8, dist * 0.3);
+  const targetZ = view === 'dollhouse' ? 2 : resolved.peak * 0.42;
   c.setLookAt(cx + fx * dist * 0.8, height, -(cy + fy * dist * 0.8), cx, targetZ, -cy, animate);
 }

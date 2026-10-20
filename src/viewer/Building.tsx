@@ -31,7 +31,7 @@ export function Building({ resolved, mode, cutLevel, doorsOpen, onPick, selected
 
   const style = resolved.project.style;
   return (
-    <group>
+    <group name="house">
       {groups.map((g, i) => {
         const mat = materialFor(g.mat, style, mode);
         const isGlass = g.mat === 'glass';

@@ -20,14 +20,26 @@ export type NewRoom = z.infer<typeof NewRoom>;
 
 const LevelsSel = z.union([z.literal('all'), z.array(Id)]);
 
+/** Peel defaults/optionals off a field so an "update" op only carries what was actually sent. */
+function bare(t: z.ZodType): z.ZodType {
+  let cur = t as z.ZodType & { unwrap?: () => z.ZodType };
+  while (cur instanceof z.ZodDefault || cur instanceof z.ZodOptional) cur = (cur as unknown as { unwrap: () => z.ZodType }).unwrap() as typeof cur;
+  return cur;
+}
+
+/** Like .partial(), but without filling in defaults for fields that weren't given. */
+function updates<T extends z.ZodRawShape>(shape: T): { [K in keyof T]: z.ZodOptional<z.ZodType<z.output<T[K]>, z.input<T[K]>>> } {
+  return Object.fromEntries(Object.entries(shape).map(([k, v]) => [k, bare(v as z.ZodType).optional()])) as never;
+}
+
 const op = <N extends string, S extends z.ZodRawShape>(name: N, shape: S, description: string) =>
   z.object({ op: z.literal(name), ...shape }).describe(description);
 
 export const Op = z.discriminatedUnion('op', [
   op('use_template', { template: z.enum(TEMPLATE_IDS), params: TemplateParams.optional() }, 'Replace the building with a parametric starting plan (keeps site and notes).'),
-  op('set_style', Style.partial().shape, 'Change exterior/interior style and materials.'),
-  op('set_site', Site.partial().shape, 'Change the setting around the house.'),
-  op('set_roof', Roof.partial().shape, 'Change the roof form, pitch, overhangs, porch roofs.'),
+  op('set_style', updates(Style.shape), 'Change exterior/interior style and materials.'),
+  op('set_site', updates(Site.shape), 'Change the setting around the house.'),
+  op('set_roof', updates(Roof.shape), 'Change the roof form, pitch, overhangs, porch roofs.'),
   op('set_name', { name: z.string() }, 'Rename the project.'),
   op('note', { add: z.string().optional(), remove: z.string().optional() }, 'Remember (or forget) a lasting preference.'),
 
@@ -99,18 +111,18 @@ export const Op = z.discriminatedUnion('op', [
   op('remove_room', { room: Id, fill: z.enum(['outside', 'neighbor']).default('neighbor'), into: Id.optional() }, 'Remove a room; its space goes to a neighbor or becomes outside.'),
 
   op('add_opening', { ...Opening.omit({ id: true, auto: true }).shape, id: Id.optional() }, 'Add a door, window or opening on a side of a room.'),
-  op('update_opening', { opening: Id, ...Opening.omit({ id: true, auto: true }).partial().shape }, 'Change a door/window (size, position, type, side).'),
+  op('update_opening', { opening: Id, ...updates(Opening.omit({ id: true, auto: true }).shape) }, 'Change a door/window (size, position, type, side).'),
   op('remove_opening', { opening: Id }, 'Remove a door/window/opening.'),
 
-  op('set_kitchen', { room: Id, ...KitchenSpec.partial().shape, remove: z.boolean().optional() }, 'Set up or change a kitchen layout (sink/range/fridge placement, island).'),
-  op('set_bath', { room: Id, ...BathSpec.partial().shape, remove: z.boolean().optional() }, 'Set up or change a bathroom.'),
+  op('set_kitchen', { room: Id, ...updates(KitchenSpec.shape), remove: z.boolean().optional() }, 'Set up or change a kitchen layout (sink/range/fridge placement, island).'),
+  op('set_bath', { room: Id, ...updates(BathSpec.shape), remove: z.boolean().optional() }, 'Set up or change a bathroom.'),
   op('add_fixture', { ...Fixture.omit({ id: true, auto: true }).shape, id: Id.optional() }, 'Add furniture or a fixture from the catalog.'),
-  op('update_fixture', { fixture: Id, ...Fixture.omit({ id: true, auto: true }).partial().shape }, 'Move/resize/swap a fixture.'),
+  op('update_fixture', { fixture: Id, ...updates(Fixture.omit({ id: true, auto: true }).shape) }, 'Move/resize/swap a fixture.'),
   op('remove_fixture', { fixture: Id }, 'Remove a fixture.'),
   op('furnish', { room: Id, mode: z.enum(['auto', 'none']).default('auto') }, 'Re-furnish a room automatically, or clear its furniture.'),
 
   op('add_stairs', { ...Stair.omit({ id: true }).shape, id: Id.optional() }, 'Add stairs from a room to the level above.'),
-  op('update_stairs', { stairs: Id, ...Stair.omit({ id: true }).partial().shape }, 'Change stairs.'),
+  op('update_stairs', { stairs: Id, ...updates(Stair.omit({ id: true }).shape) }, 'Change stairs.'),
   op('remove_stairs', { stairs: Id }, 'Remove stairs.'),
 ]);
 export type Op = z.infer<typeof Op>;

@@ -30,7 +30,7 @@ export function DevGallery() {
   const [hour, setHour] = useState(Number(params.get('hour') ?? 15));
   const [selected, setSelected] = useState<string | null>(null);
   // ?ops=[...] applies extra ops on top of the sample, for checking edits by eye.
-  const extra = params.get('ops');
+  const [extra] = useState(() => params.get('ops'));
   const resolved = useMemo(() => {
     const base = (ALL[name] ?? ALL.sampleCottage)();
     return resolve(extra ? applyOps(base, JSON.parse(extra)).project : base);

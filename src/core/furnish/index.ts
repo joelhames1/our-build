@@ -100,8 +100,9 @@ export function furnishAll(p: Project) {
             deck(ctx);
             break;
         }
-      } catch {
-        // A room that can't be furnished is simply left empty.
+      } catch (e) {
+        // A room that can't be furnished is simply left empty (but a bug shouldn't hide in tests).
+        if (process.env.NODE_ENV === 'test') throw e;
         ctx.out.length = 0;
       }
     }

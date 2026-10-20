@@ -12,6 +12,7 @@ export const TEMPLATE_IDS = [
   'lake_house',
   'tiny_house',
   'garage_studio',
+  'scandi_cabin',
 ] as const;
 export type TemplateId = (typeof TEMPLATE_IDS)[number];
 

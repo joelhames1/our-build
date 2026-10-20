@@ -111,10 +111,13 @@ export function living(ctx: RoomCtx, opts: { fireplace?: { side: Side; u: number
     }
   }
   if (!focal) {
+    // In a long room the seating gathers at one end, facing a short wall, and leaves the rest to walk through.
+    const long = Math.max(ctx.w, ctx.d) / Math.min(ctx.w, ctx.d) >= 1.6;
     const order = [...SIDES].sort((a, b) => score(b) - score(a));
     function score(s: Side) {
       const solid = ctx.freeAlong(s, 1.6, 2).reduce((m, [x, y]) => Math.max(m, y - x), 0);
-      return solid + (ctx.windowsOn(s).length ? -2 : 0) + (ctx.across(s) >= 11 ? 3 : 0);
+      const endWall = long && ctx.across(s) === Math.max(ctx.w, ctx.d);
+      return solid + (ctx.windowsOn(s).length ? -2 : 0) + (ctx.across(s) >= 11 ? 3 : 0) + (endWall ? 12 : 0) - ctx.doorsOn(s).length * 2;
     }
     for (const s of order) {
       if (ctx.across(s) < 10) continue;
@@ -404,6 +407,24 @@ export function porch(ctx: RoomCtx, screened: boolean) {
 
 export function deck(ctx: RoomCtx) {
   if (ctx.w < 8 || ctx.d < 8) {
+    // A narrow deck: a few chairs along the house wall, looking out, with a little table between.
+    const house = SIDES.find((s) => ctx.solid(s).length);
+    if (house && ctx.across(house) >= 5) {
+      const sf = ctx.frame(house)!;
+      const out = OPPOSITE[house];
+      const door = ctx.doorsOn(house)[0];
+      const mid = door ? ((door.u0 + door.u1) / 2 < (sf.a + sf.b) / 2 ? (door.u1 + sf.b) / 2 : (sf.a + door.u0) / 2) : (sf.a + sf.b) / 2;
+      let k = 0;
+      for (const du of [-1.9, 1.9]) {
+        const [x, y] = ctx.point(house, mid + du, 2);
+        ctx.float(id(ctx, `chair${++k}`), 'adirondack_chair', x, y, out);
+      }
+      const [tx, ty] = ctx.point(house, mid, 1.8);
+      ctx.float(id(ctx, 'side'), 'side_table', tx, ty, out, [1.4, 1.4]);
+      const c = ctx.corner(2);
+      if (c) ctx.float(id(ctx, 'planter'), 'planter', c.x, c.y, 'S');
+      return;
+    }
     const c = ctx.corner(3);
     if (c) ctx.float(id(ctx, 'chair1'), 'adirondack_chair', c.x, c.y, 'S');
     return;

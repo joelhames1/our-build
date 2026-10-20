@@ -486,6 +486,24 @@ const garageStudio: Gen = (p) => {
   };
 };
 
+const scandiCabin: Gen = (p) => {
+  const { beds } = bedsBaths(p, 2, 1);
+  const D = 24;
+  const W = snap(Math.max(34, Math.min(52, (p.area ?? 900) / D)));
+  // A vaulted great room open to the kitchen across the front; bedrooms, bath and mudroom along the back.
+  const front = X(flex(1.5, R('Great Room', 'great_room', { ceiling: 'vaulted' })), fixed(11, R('Kitchen', 'kitchen', { kitchen: { shape: 'L', island: W >= 40 } })));
+  const back = X(fixed(7.5, R('Mudroom', 'mudroom')), fixed(8, R('Bath', 'bath', { bath: { bathing: 'shower' } })), ...Array.from({ length: Math.max(1, beds) }, (_, i) => flex(1, R(i === 0 ? 'Bedroom' : `Bedroom ${i + 1}`, 'bedroom'))));
+  const box = { x0: 0, y0: 0, x1: W, y1: D };
+  return {
+    footprint: box,
+    levels: [{ name: 'Main Floor', node: Y(fixed(13.5, front), flex(1, back)), porches: p.porch === 'none' ? [] : [{ side: 'S', depth: 8, type: 'deck', covered: false, from: 0, to: W * 0.65 }] }],
+    // Steep, simple and tight to the walls: barely any eaves.
+    roof: { form: 'gable', pitch: 12, ridge: 'parallel_to_front', overhang: 0.5, rake: 0.25 },
+    style: { preset: 'scandinavian', wall: 'vertical_wood', wallColor: '#2c2e30', trimColor: '#2c2e30', roofMaterial: 'standing_seam', roofColor: '#26282a', windows: 'modern', grilles: 'none', windowColor: '#1f2123', doorColor: '#b48a5e', floor: 'pine', foundation: 'slab' },
+    site: { setting: 'forest', trees: 'many' },
+  };
+};
+
 const GENERATORS: Record<TemplateId, Gen> = {
   cottage,
   cape_cod: capeCod,
@@ -497,6 +515,7 @@ const GENERATORS: Record<TemplateId, Gen> = {
   lake_house: lakeHouse,
   tiny_house: tinyHouse,
   garage_studio: garageStudio,
+  scandi_cabin: scandiCabin,
 };
 
 export const TEMPLATE_INFO: Record<TemplateId, string> = {
@@ -510,6 +529,7 @@ export const TEMPLATE_INFO: Record<TemplateId, string> = {
   lake_house: 'Lake house: entry/mudroom/office on the approach side, great room and kitchen facing the water, wraparound porch on the lake side, bedrooms upstairs (1.5 or 2 stories).',
   tiny_house: 'Tiny house (~350–450 sf): living, kitchen, bath, bedroom; shed roof.',
   garage_studio: 'Garage with a studio apartment above (ADU).',
+  scandi_cabin: 'Scandinavian cabin: long, simple steep gable with almost no eaves, dark vertical boards and black windows; vaulted great room open to the kitchen, bedrooms, bath and mudroom along the back; deck in front. Params: bedrooms 1–3, area, porch.',
 };
 
 export function buildTemplate(id: TemplateId, params: TemplateParams, base: { site: Site; style: Style; name: string; brief: string; notes: string[] }): Project {

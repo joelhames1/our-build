@@ -87,6 +87,7 @@ export function planFromBrief(brief: string): Plan {
   const has = (re: RegExp) => re.test(t);
   let template: TemplateId = 'cottage';
   if (has(/a[- ]?frame/)) template = 'a_frame';
+  else if (has(/scandi|nordic|scandinavian|hygge|norwegian|swedish/)) template = 'scandi_cabin';
   else if (has(/cape\s*cod|\bcape\b/)) template = 'cape_cod';
   else if (has(/farm\s*house|farmhouse/)) template = 'farmhouse';
   else if (has(/\branch\b|rambler/)) template = 'ranch';
@@ -153,13 +154,14 @@ function describeTemplate(t: TemplateId, p: TemplateParams): string {
     lake_house: 'a lake house with the living spaces facing the water',
     tiny_house: 'a tiny house',
     garage_studio: 'a garage with a studio above',
+    scandi_cabin: 'a Scandinavian cabin with a vaulted great room',
   };
   return `${kind[t]} with ${beds}${porch}`;
 }
 
 function nameFrom(t: string, template: TemplateId, setting?: Site['setting']): string {
   const place = setting === 'island' ? 'Island' : setting === 'lakefront' ? 'Lake' : setting === 'coast' ? 'Seaside' : setting === 'forest' ? 'Woodland' : setting === 'mountain' ? 'Mountain' : setting === 'desert' ? 'Desert' : '';
-  const kind: Record<TemplateId, string> = { cottage: t.includes('cabin') ? 'Cabin' : 'Cottage', cape_cod: 'Cape', farmhouse: 'Farmhouse', ranch: 'Ranch', bungalow: 'Bungalow', a_frame: 'A-Frame', modern: 'Modern House', lake_house: 'Lake House', tiny_house: 'Tiny House', garage_studio: 'Carriage House' };
+  const kind: Record<TemplateId, string> = { cottage: t.includes('cabin') ? 'Cabin' : 'Cottage', cape_cod: 'Cape', farmhouse: 'Farmhouse', ranch: 'Ranch', bungalow: 'Bungalow', a_frame: 'A-Frame', modern: 'Modern House', lake_house: 'Lake House', tiny_house: 'Tiny House', garage_studio: 'Carriage House', scandi_cabin: 'Nordic Cabin' };
   const k = kind[template];
   if (place && !(place === 'Lake' && template === 'lake_house')) return `${place} ${k}`;
   if (t.includes('stone')) return `Stone ${k}`;

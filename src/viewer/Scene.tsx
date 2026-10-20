@@ -1,8 +1,10 @@
 'use client';
 
-import { CameraControls, Environment, Lightformer, Sky } from '@react-three/drei';
+import { CameraControls, Environment, Lightformer, PerformanceMonitor, Sky } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
+import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing';
+import { ToneMappingMode } from 'postprocessing';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import type { Resolved } from '@/core/resolve';
 import { Building } from './Building';
@@ -27,6 +29,8 @@ export interface SceneProps {
   testMode?: boolean;
   /** Extra rotation (degrees) of the initial camera around the house. */
   orbit?: number;
+  /** Ambient occlusion: 'auto' drops it on slow devices. */
+  ao?: 'auto' | 'on' | 'off';
   children?: React.ReactNode;
 }
 
@@ -44,12 +48,18 @@ export const Scene = forwardRef<SceneHandle, SceneProps>(function Scene(props, r
   const sun = useMemo(() => sunDirection(hour, site.latitude, site.northDeg), [hour, site.latitude, site.northDeg]);
   const glRef = useRef<{ gl: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.Camera } | null>(null);
   const controls = useRef<CameraControls>(null);
+  // Ambient occlusion until the device shows it can't keep up.
+  const [ao, setAo] = useState(true);
 
   useImperativeHandle(ref, () => ({
     snapshot: () => {
       const g = glRef.current;
       if (!g) return null;
+      // A plain render (no effects), so tone-map it the way the effects pass would.
+      const tm = g.gl.toneMapping;
+      g.gl.toneMapping = THREE.AgXToneMapping;
       g.gl.render(g.scene, g.camera);
+      g.gl.toneMapping = tm;
       return g.gl.domElement.toDataURL('image/png');
     },
     frame: () => frameCamera(controls.current, resolved, view, true, props.orbit),
@@ -130,6 +140,18 @@ export const Scene = forwardRef<SceneHandle, SceneProps>(function Scene(props, r
         />
       )}
       <AutoFrame controls={controls} resolved={resolved} view={view} orbit={props.orbit} />
+      {/* Not in the dollhouse: glass writes no depth, so the deep notch behind cut windows would bleed through. */}
+      {props.ao !== 'off' && (props.ao === 'on' || !testMode) && view !== 'dollhouse' && (
+        <>
+          {props.ao !== 'on' && <PerformanceMonitor onDecline={() => setAo(false)} />}
+          {(ao || props.ao === 'on') && (
+            <EffectComposer multisampling={4}>
+              <N8AO halfRes quality="performance" aoRadius={view === 'walk' ? 2.5 : 5} distanceFalloff={1} intensity={view === 'walk' ? 1.6 : 2.2} color="#2b2620" />
+              <ToneMapping mode={ToneMappingMode.AGX} />
+            </EffectComposer>
+          )}
+        </>
+      )}
     </Canvas>
   );
 });

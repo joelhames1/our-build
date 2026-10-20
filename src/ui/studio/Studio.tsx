@@ -24,7 +24,10 @@ export function Studio({ id }: { id: string }) {
   const { status, project, view, level, render, hour, selection, load, send, setSelection, set, statuses, busy, meta } = useStudio();
   const sceneRef = useRef<SceneHandle>(null);
   const [exportOpen, setExportOpen] = useState(false);
-  const testMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('test') === '1';
+  const query = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const testMode = query?.get('test') === '1';
+  const aoParam = query?.get('ao');
+  const ao = aoParam === 'on' || aoParam === 'off' ? aoParam : 'auto';
 
   useEffect(() => {
     load(id);
@@ -82,7 +85,7 @@ export function Studio({ id }: { id: string }) {
         view === 'plan' ? (
           <PlanView resolved={resolved} level={level} selected={selection?.id} onPick={onPick} />
         ) : (
-          <Scene ref={sceneRef} resolved={resolved} mode={render} view={view} level={level} hour={hour} selected={selection?.id} onPick={(o) => onPick(o)} onMiss={() => setSelection(null)} testMode={testMode} />
+          <Scene ref={sceneRef} resolved={resolved} mode={render} view={view} level={level} hour={hour} selected={selection?.id} onPick={(o) => onPick(o)} onMiss={() => setSelection(null)} testMode={testMode} ao={ao} />
         )
       ) : (
         <Sketching text={status === 'ready' ? (busy ? statuses[statuses.length - 1] ?? 'Sketching…' : 'Describe your design below to begin.') : 'Opening your design…'} />

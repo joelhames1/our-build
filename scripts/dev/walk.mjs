@@ -15,6 +15,11 @@ await page.getByLabel('Describe your design').fill('A white two-story farmhouse 
 await page.getByRole('button', { name: /Begin/ }).click();
 await page.waitForURL(/\/p\//);
 await page.getByTestId('assistant-reply').waitFor({ timeout: 60000 });
+if (process.env.AO) {
+  // Reload with ambient occlusion forced (swiftshader is too slow for the automatic setting).
+  await page.waitForTimeout(1500);
+  await page.goto(page.url().split('?')[0] + '?ao=' + process.env.AO, { waitUntil: 'networkidle' });
+}
 await page.waitForTimeout(2500);
 await page.getByTestId('view-walk').click();
 await page.waitForTimeout(3000);

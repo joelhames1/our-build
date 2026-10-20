@@ -33,7 +33,7 @@ export function DevGallery() {
 
   return (
     <div className="fixed inset-0">
-      <Scene resolved={resolved} mode={mode} view={view} level={level} hour={hour} selected={selected} onPick={(o) => setSelected(o)} onMiss={() => setSelected(null)} testMode={testMode} orbit={Number(params.get('orbit') ?? 0)} />
+      <Scene resolved={resolved} mode={mode} view={view} level={level} hour={hour} selected={selected} onPick={(o) => setSelected(o)} onMiss={() => setSelected(null)} testMode={testMode} orbit={Number(params.get('orbit') ?? 0)} ao={(params.get('ao') as 'on' | 'off' | null) ?? 'auto'} />
       <div className="glass absolute left-4 top-4 flex flex-wrap items-center gap-2 rounded-2xl p-2 text-sm">
         <select className="rounded-lg bg-white/70 px-2 py-1" value={name} onChange={(e) => setName(e.target.value)}>
           {Object.keys(ALL).map((k) => (

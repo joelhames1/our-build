@@ -19,7 +19,8 @@ export function designSummary(res: Resolved, issues: Issue[] = res.issues): stri
   const st = p.style;
   out.push(`STYLE: ${st.preset ?? 'custom'} | walls ${st.wall} ${st.wallColor} | trim ${st.trimColor} | door ${st.doorColor} | roof ${st.roofMaterial} ${st.roofColor} | windows ${st.windows}${st.grilles !== 'none' ? ` w/ ${st.grilles} grilles` : ''} ${st.windowColor} | floors ${st.floor} | foundation ${st.foundation}`);
   const r = p.roof;
-  out.push(`ROOF: ${r.form} ${r.pitch}/12, ridge ${r.ridge}${r.low ? `, low side ${r.low}` : ''}, overhang ${ft(r.overhang)}, porch roofs ${r.porch} ${r.porchPitch}/12`);
+  const ch = res.chimney;
+  out.push(`ROOF: ${r.form} ${r.pitch}/12, ridge ${r.ridge}${r.low ? `, low side ${r.low}` : ''}, overhang ${ft(r.overhang)}, porch roofs ${r.porch} ${r.porchPitch}/12${ch ? ` | chimney: ${ch.material}, ${ch.side} side of ${ch.room}` : ''}`);
   out.push('Units ft. x→east, y→north. rect=[x,y,w,d] on wall centerlines (SW corner, w along x, d along y). Sides N/E/S/W.');
   for (const rl of res.levels) out.push('', ...levelLines(rl, res));
   const shown = issues.filter((i) => i.severity !== 'tip').slice(0, 14);

@@ -2,7 +2,9 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { type RoofLevelInput, buildRoof, planeZ, roofZAt } from '../geometry/roof';
 import { type MultiPoly, boxMulti, multiArea, union } from '../geometry/polygon';
-import { Roof } from '../model/schema';
+import { Roof, parseProject } from '../model/schema';
+import { applyOps } from '../ops/apply';
+import { resolve } from '../resolve';
 
 const roof = (o: Partial<Roof> = {}) => Roof.parse(o);
 const lvl = (footprint: MultiPoly, extra: Partial<RoofLevelInput> = {}): RoofLevelInput => ({ index: 0, footprint, upper: null, upperFloor: null, plate: 10, porches: [], ...extra });
@@ -50,5 +52,40 @@ describe('roof envelope', () => {
       ),
       { numRuns: 40 },
     );
+  });
+});
+
+describe('chimney', () => {
+  it('clears the roof and keeps windows beside it', () => {
+    for (const t of ['cottage', 'cape_cod', 'farmhouse', 'bungalow', 'lake_house'] as const) {
+      const r = applyOps(parseProject({ v: 1, name: 'T', site: {}, style: {}, roof: {}, levels: [{ id: 'L1', name: 'Main' }] }), [{ op: 'use_template', template: t }]);
+      const res = resolve(r.project);
+      const ch = res.chimney!;
+      expect(ch, t).toBeTruthy();
+      expect(ch.exterior, t).toBe(true);
+      const stack = ch.blocks.find((b) => b.part === 'stack')!;
+      // 2' above any roof within 10'.
+      for (let x = stack.box.x0 - 10; x <= stack.box.x1 + 10; x += 2)
+        for (let y = stack.box.y0 - 10; y <= stack.box.y1 + 10; y += 2) {
+          if (Math.hypot(Math.max(stack.box.x0 - x, 0, x - stack.box.x1), Math.max(stack.box.y0 - y, 0, y - stack.box.y1)) > 10) continue;
+          for (const rl of res.levels) {
+            const z = roofZAt(res.roof.faces, rl.roofLevel, x, y);
+            if (z !== null) expect(stack.z1, t).toBeGreaterThanOrEqual(z + 2 - 1e-6);
+          }
+        }
+      // No window hides behind it.
+      const rl = res.levels[0];
+      for (const o of rl.openings) {
+        if (o.axis !== ch.along.axis || Math.abs(o.wall.coord - ch.along.coord) > 0.5) continue;
+        expect(o.u1 <= ch.along.a || o.u0 >= ch.along.b, `${t} ${o.id}`).toBe(true);
+      }
+    }
+  });
+
+  it('goes away with its room', () => {
+    const base = applyOps(parseProject({ v: 1, name: 'T', site: {}, style: {}, roof: {}, levels: [{ id: 'L1', name: 'Main' }] }), [{ op: 'use_template', template: 'cottage' }]).project;
+    const r = applyOps(base, [{ op: 'remove_room', room: base.roof.chimney!.room }]);
+    expect(r.ok).toBe(true);
+    expect(r.project.roof.chimney).toBeNull();
   });
 });

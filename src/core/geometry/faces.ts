@@ -25,7 +25,8 @@ export type FaceTag =
   | 'roof'
   | 'roof_under'
   | 'fascia'
-  | 'porch_floor';
+  | 'porch_floor'
+  | 'chimney';
 
 export interface Face3 {
   tag: FaceTag;
@@ -62,6 +63,7 @@ export function buildFaces(res: Resolved, opts: FaceOptions = {}): Face3[] {
     if (cut === undefined) faces.push(...ceilingFaces(res, rl, p));
   }
   faces.push(...foundationFaces(res, p));
+  if (opts.cutLevel === undefined) faces.push(...chimneyFaces(res));
   const roof = roofFaces(res, p);
   // In a dollhouse cut, only roofs below the cut level stay.
   faces.push(...(opts.cutLevel === undefined ? roof : roof.filter((f) => f.level < opts.cutLevel!)));
@@ -369,6 +371,29 @@ function foundationFaces(res: Resolved, p: Project): Face3[] {
   if (!L1) return [];
   const mat = p.style.foundation === 'stone_plinth' ? 'stone' : 'foundation';
   return polyEdges(L1.footprint).map((e) => frameFace('foundation', mat, 'foundation', 0, e, [[[[e.a, 0], [e.b, 0], [e.b, L1.elevation], [e.a, L1.elevation]]]]));
+}
+
+// --- chimney ------------------------------------------------------------------------------------
+
+/** Each masonry block as five faces (no bottom). Cap and flue get their own materials. */
+function chimneyFaces(res: Resolved): Face3[] {
+  const ch = res.chimney;
+  if (!ch) return [];
+  const faces: Face3[] = [];
+  for (const blk of ch.blocks) {
+    const mat = blk.part === 'cap' ? 'cap_stone' : blk.part === 'flue' ? 'flue' : ch.material;
+    const { x0, x1, y0, y1 } = blk.box;
+    const h = blk.z1 - blk.z0;
+    const side = (origin: V3, u: V3, len: number, normal: V3): Face3 => ({ tag: 'chimney', mat, owner: 'chimney', level: 0, origin, u, v: [0, 0, 1], polys: [[[[0, 0], [len, 0], [len, h], [0, h]]]], normal });
+    faces.push(
+      side([x0, y0, blk.z0], [1, 0, 0], x1 - x0, [0, -1, 0]),
+      side([x1, y0, blk.z0], [0, 1, 0], y1 - y0, [1, 0, 0]),
+      side([x1, y1, blk.z0], [-1, 0, 0], x1 - x0, [0, 1, 0]),
+      side([x0, y1, blk.z0], [0, -1, 0], y1 - y0, [-1, 0, 0]),
+      { tag: 'chimney', mat, owner: 'chimney', level: 0, origin: [x0, y0, blk.z1], u: [1, 0, 0], v: [0, 1, 0], polys: [[[[0, 0], [x1 - x0, 0], [x1 - x0, y1 - y0], [0, y1 - y0]]]], normal: [0, 0, 1] },
+    );
+  }
+  return faces;
 }
 
 // --- roof ---------------------------------------------------------------------------------------

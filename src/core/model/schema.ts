@@ -213,7 +213,8 @@ export const Roof = z.object({
   porchPitch: z.number().min(0).max(12).default(4),
   overhang: Ft.default(1.5),
   rake: Ft.default(1),
-  chimney: z.object({ room: Id, side: Side }).nullable().default(null),
+  /** A masonry chimney on one side of a room (outside the wall when that side is exterior). */
+  chimney: z.object({ room: Id, side: Side, material: z.enum(['brick', 'stone']).optional() }).nullable().default(null),
 });
 export type Roof = z.infer<typeof Roof>;
 

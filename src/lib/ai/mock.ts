@@ -342,6 +342,29 @@ export function planEdit(t: string, req: DesignRequest): Plan {
     return { ops };
   }
 
+  // chimneys
+  if (/chimney|fireplace/.test(t)) {
+    if (/\b(remove|delete|take out|get rid of|no)\b/.test(t)) {
+      if (!p.roof.chimney) return { ops: [], reply: "There's no chimney to take out." };
+      return { ops: [{ op: 'set_roof', chimney: null }], reply: 'I took the chimney out.' };
+    }
+    const material = /stone/.test(t) ? 'stone' : /brick/.test(t) ? 'brick' : undefined;
+    const L1 = p.levels[0];
+    const host =
+      (ctx.sel && (ctx.sel.kind === 'room' || ctx.sel.kind === 'standing') ? L1.rooms.find((r) => r.id === ctx.sel!.id) : undefined) ??
+      ['great_room', 'living', 'family'].map((ty) => L1.rooms.find((r) => r.type === ty)).find(Boolean);
+    if (!host) return { ops: [], reply: 'I need a living room or great room to put a fireplace in.' };
+    const res = resolve(p);
+    const walls = res.levels[0].walls.filter((w) => w.kind === 'exterior' && (w.pos === host.id || w.neg === host.id));
+    // Prefer a gable end (a side wall), then the back.
+    const front = p.site.front;
+    const sideOf = (w: (typeof walls)[number]): Side => (w.axis === 'x' ? (w.pos === host.id ? 'S' : 'N') : w.pos === host.id ? 'W' : 'E');
+    const opp: Record<Side, Side> = { N: 'S', S: 'N', E: 'W', W: 'E' };
+    const sides = [...new Set(walls.map(sideOf))].sort((a, b) => (a === front ? 2 : a === opp[front] ? 1 : 0) - (b === front ? 2 : b === opp[front] ? 1 : 0));
+    if (!sides.length) return { ops: [], reply: `${host.name} has no outside wall for a chimney.` };
+    return { ops: [{ op: 'set_roof', chimney: { room: host.id, side: sides[0], ...(material ? { material } : {}) } }], reply: `I added a ${material ?? 'masonry'} chimney on the ${({ N: 'north', S: 'south', E: 'east', W: 'west' } as const)[sides[0]]} wall of ${host.name}, with windows on either side of it.` };
+  }
+
   // add a story
   const addLevel = t.match(/add\s+(a|an|another|one more)?\s*(second|third|fourth|new|extra|another)?\s*(story|storey|floor|level)/);
   if (addLevel) {

@@ -1,4 +1,5 @@
 import type { Issue } from '../model/issues';
+import { type ResolvedChimney, resolveChimney } from '../geometry/chimney';
 import type { Level, Project, Room, Side } from '../model/schema';
 import { isEnclosed, isOutdoor } from '../model/schema';
 import { type ResolvedOpening, type RoomEdge, resolveOpenings, roomEdges } from '../geometry/openings';
@@ -57,6 +58,7 @@ export interface Resolved {
   project: Project;
   levels: ResolvedLevel[];
   roof: RoofResult;
+  chimney: ResolvedChimney | null;
   issues: Issue[];
   foundation: number;
   /** Total heated area: outside faces of enclosed rooms (porches/garages excluded). */
@@ -156,7 +158,8 @@ export function resolve(project: Project): Resolved {
     return s + (heated.length ? Math.max(0, multiArea(l.footprint) - garageArea) : 0);
   }, 0);
 
-  return { project, levels, roof, issues, foundation, grossArea, bounds, peak: Math.max(roofPeak(roof), ...levels.map((l) => l.plate)) };
+  const chimney = resolveChimney(project, levels, roof.faces);
+  return { project, levels, roof, chimney, issues, foundation, grossArea, bounds, peak: Math.max(roofPeak(roof), chimney?.top ?? 0, ...levels.map((l) => l.plate)) };
 }
 
 function roomInfo(room: Room, walls: WallSeg[]): RoomInfo {

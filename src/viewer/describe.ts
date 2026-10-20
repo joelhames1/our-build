@@ -32,6 +32,10 @@ export function describeOwner(res: Resolved, owner: string): Selection | null {
       return { kind: 'wall', id: w.id, label, detail: `${ftIn(w.b - w.a)} long, ${rl.level.name}` };
     }
   }
+  if (owner === 'chimney' && res.chimney) {
+    const host = res.levels.flatMap((l) => [...l.rooms.values()]).find((i) => i.room.id === res.chimney!.room)?.room.name ?? 'the house';
+    return { kind: 'roof', id: 'chimney', label: 'Chimney', detail: `${res.chimney.material} chimney on the ${sideWord[res.chimney.side]} side of ${host}` };
+  }
   if (/^M\d+\./.test(owner)) return { kind: 'roof', id: owner, label: 'Roof', detail: `${res.project.roof.form}, ${res.project.roof.pitch}/12` };
   const lv = res.levels.find((l) => owner.startsWith(`${l.level.id}:`));
   if (lv) return { kind: 'level', id: lv.level.id, label: lv.level.name };

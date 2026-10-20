@@ -107,6 +107,10 @@ function finalize(d: Draft) {
     level.stairs = level.stairs.filter((s) => ids.has(s.room));
     if (level.stairs.length < sBefore) d.fixes.push('Removed stairs whose room is gone.');
   }
+  if (p.roof.chimney && !p.levels.some((l) => l.rooms.some((r) => r.id === p.roof.chimney!.room))) {
+    p.roof.chimney = null;
+    d.fixes.push('Removed the chimney: its room is gone.');
+  }
   // Stairs need somewhere to go.
   const top = p.levels[p.levels.length - 1];
   if (top.stairs.length) {

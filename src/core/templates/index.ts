@@ -99,6 +99,8 @@ interface Plan {
   footprint: Box;
   levels: LevelPlan[];
   roof?: Partial<Roof>;
+  /** A chimney on this side of the named room (plans are drawn facing south). */
+  chimney?: { room: string; side: Side };
   style?: Partial<Style>;
   site?: Partial<Site>;
 }
@@ -150,10 +152,16 @@ function build(plan: Plan, front: Side, base: { site: Site; style: Style; name: 
     notes: base.notes,
     site: { ...base.site, ...plan.site, front: 'S' },
     style: { ...base.style, ...plan.style },
-    roof: { ...plan.roof },
+    roof: { ...plan.roof, chimney: chimneyFor(plan, levels) },
     levels,
   });
   return orient(project, front);
+}
+
+function chimneyFor(plan: Plan, levels: Level[]): Roof['chimney'] {
+  if (!plan.chimney) return null;
+  const room = levels.flatMap((l) => l.rooms).find((r) => r.name === plan.chimney!.room);
+  return room ? { room: room.id, side: plan.chimney.side } : null;
 }
 
 const byTag = (rooms: (Room & { tag?: string })[], tag: string) => rooms.find((r) => r.tag === tag)!;
@@ -236,6 +244,7 @@ const cottage: Gen = (p) => {
     footprint: box,
     levels,
     roof: { form: 'gable', pitch: upper ? 12 : 9, ridge: 'parallel_to_front', overhang: 1, rake: 0.75 },
+    chimney: { room: 'Living', side: 'W' },
     style: { preset: 'cottage', wall: 'shingle', wallColor: '#c8c0b2', trimColor: '#fbfaf6', roofMaterial: 'cedar_shake', roofColor: '#6d655c', windows: 'double_hung', grilles: 'cottage', doorColor: '#3f5a4c', foundation: 'stone_plinth' },
   };
 };
@@ -259,6 +268,7 @@ const capeCod: Gen = (p) => {
       { name: 'Upper Floor', kind: 'half', kneeWall: 3, ceiling: 8, node: X(flex(1, upWest), fixed(9, Y(flex(1, R('Hall', 'hall')), fixed(7, R('Bath', 'bath')))), flex(1, upEast)) },
     ],
     roof: { form: 'gable', pitch: 12, ridge: 'parallel_to_front', overhang: 0.75, rake: 0.5 },
+    chimney: { room: 'Living', side: 'W' },
     style: { preset: 'cape_cod', wall: 'shingle', wallColor: '#a9a196', trimColor: '#ffffff', roofMaterial: 'asphalt', roofColor: '#3d3d40', windows: 'double_hung', grilles: 'colonial', doorColor: '#7a2f2a', foundation: 'crawl' },
   };
 };
@@ -280,6 +290,7 @@ const farmhouse: Gen = (p) => {
       { name: 'Upper Floor', node: centerHallUpper(beds, full, !!p.office), box, ceiling: 8.5 },
     ],
     roof: { form: 'gable', pitch: 10, ridge: 'parallel_to_front', overhang: 1, rake: 0.75, porch: 'shed', porchPitch: 3.5 },
+    chimney: { room: 'Living', side: 'W' },
     style: { preset: 'farmhouse', wall: 'board_and_batten', wallColor: '#f2f0ea', trimColor: '#f7f6f2', roofMaterial: 'standing_seam', roofColor: '#2f3236', windows: 'double_hung', grilles: 'none', windowColor: '#2b2b2b', doorColor: '#2b2b2b', foundation: 'crawl' },
   };
 };
@@ -333,6 +344,7 @@ const bungalow: Gen = (p) => {
     footprint: box,
     levels: [{ name: 'Main Floor', node: Y(fixed(15, front), fixed(12, middle), flex(1, back)), porches: p.porch === 'none' ? [] : [{ side: 'S', depth: 8, from: 0, to: W * 0.7 }] }],
     roof: { form: 'gable', pitch: 6, ridge: 'perpendicular_to_front', overhang: 2.5, rake: 2, porch: 'gable', porchPitch: 6 },
+    chimney: { room: 'Living', side: 'W' },
     style: { preset: 'craftsman', wall: 'shingle', wallColor: '#7b8a72', trimColor: '#efe8d8', roofMaterial: 'asphalt', roofColor: '#4c4a45', windows: 'double_hung', grilles: 'prairie', doorColor: '#7a4b2a', foundation: 'stone_plinth' },
   };
 };
@@ -433,6 +445,7 @@ const lakeHouse: Gen = (p) => {
       },
     ],
     roof: { form: 'gable', pitch: 11, ridge: 'parallel_to_front', overhang: 1.5, rake: 1, porch: 'shed', porchPitch: 3.5 },
+    chimney: { room: 'Great Room', side: 'W' },
     style: { preset: 'lake_house', wall: 'lap_siding', wallColor: '#5f6e74', trimColor: '#f5f3ee', roofMaterial: 'standing_seam', roofColor: '#33383b', windows: 'casement', grilles: 'none', windowColor: '#f5f3ee', doorColor: '#b9874c', foundation: 'stone_plinth' },
     site: { setting: 'lakefront', water: ['N'] },
   };

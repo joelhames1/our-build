@@ -352,14 +352,26 @@ export function autoDress(p: Project): string[] {
       }
       const defaults = openingDefaults('window', { exterior: true, hostType: t });
       const w = t === 'hall' || t === 'foyer' || t === 'stair_hall' ? 2.5 : t === 'garage' || t === 'workshop' ? 2.5 : defaults.width;
+      const ch = res.chimney;
       for (const { side, span } of sides.slice(0, maxSides)) {
         const [r0, r1] = sideRange(room, side);
-        const n = perSide(span.b - span.a);
-        for (let k = 0; k < n; k++) {
-          const c = span.a + ((k + 0.5) / n) * (span.b - span.a);
-          if (c - w / 2 < span.a + 0.6 || c + w / 2 > span.b - 0.6) continue;
-          add.push(mk({ id: `aw_${room.id}_${side}${k + 1}`.slice(0, 24), type: 'window', room: room.id, side, to: span.other === null ? 'outside' : span.other, offset: round(c - (r0 + r1) / 2), width: w }));
+        let centers: number[];
+        if (ch && ch.along.axis === span.axis && Math.abs(ch.along.coord - span.coord) < 1e-6 && ch.along.a < span.b && span.a < ch.along.b) {
+          // A chimney here: a window on each side of it, where there's room.
+          centers = [
+            [span.a, ch.along.a - 0.75],
+            [ch.along.b + 0.75, span.b],
+          ]
+            .filter(([a, b]) => b - a >= w + 1.2)
+            .map(([a, b]) => (a + b) / 2);
+        } else {
+          const n = perSide(span.b - span.a);
+          centers = Array.from({ length: n }, (_, k) => span.a + ((k + 0.5) / n) * (span.b - span.a));
         }
+        centers.forEach((c, k) => {
+          if (c - w / 2 < span.a + 0.6 || c + w / 2 > span.b - 0.6) return;
+          add.push(mk({ id: `aw_${room.id}_${side}${k + 1}`.slice(0, 24), type: 'window', room: room.id, side, to: span.other === null ? 'outside' : span.other, offset: round(c - (r0 + r1) / 2), width: w }));
+        });
       }
     }
 

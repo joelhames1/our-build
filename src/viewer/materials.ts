@@ -30,6 +30,7 @@ function patternFor(key: string, style: Style): Parameters<typeof proceduralText
     return null;
   }
   if (key === 'stone') return 'stone';
+  if (key === 'brick') return 'brick';
   if (key === 'foundation') return style.foundation === 'stone_plinth' ? 'stone' : 'concrete';
   return null;
 }
@@ -37,10 +38,12 @@ function patternFor(key: string, style: Style): Parameters<typeof proceduralText
 export function colorFor(key: string, style: Style, mode: RenderMode): string {
   if (key === 'glass') return '#a9c1cc';
   if (key === 'cap') return '#4a4541';
+  if (key === 'flue') return mode === 'clay' ? CLAY_DARK : '#8a5a44';
+  if (key === 'cap_stone') return mode === 'clay' ? CLAY_DARK : '#8f8a82';
   if (mode === 'clay') {
     if (key === 'roof' || key === 'fascia' || key === 'stair') return CLAY_DARK;
     if (key.startsWith('floor:')) return '#ebe6dd';
-    if (key === 'foundation' || key === 'stone') return '#ddd7cc';
+    if (key === 'foundation' || key === 'stone' || key === 'brick') return '#ddd7cc';
     if (key === 'metal') return '#bdb7ae';
     return CLAY;
   }
@@ -71,6 +74,8 @@ export function colorFor(key: string, style: Style, mode: RenderMode): string {
       return '#9a958d';
     case 'stone':
       return '#a39c90';
+    case 'brick':
+      return '#9b5a43';
     default:
       return '#dddddd';
   }

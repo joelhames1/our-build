@@ -59,12 +59,24 @@ function levelLines(rl: ResolvedLevel, res: Resolved): string[] {
     if (room.bath) lines.push(` bath ${room.id}: ${room.bath.bathing}, ${room.bath.vanity} vanity${room.bath.wetWall ? `, wet wall ${room.bath.wetWall}` : ''}`);
   }
   for (const s of rl.stairs) lines.push(` stairs ${s.id} in ${s.room}: ${s.shape} up toward ${s.dir}, ${ft(s.width)} wide, ${s.risers} risers, footprint [${ft(s.footprint.x0)},${ft(s.footprint.y0)},${ft(s.footprint.x1 - s.footprint.x0)},${ft(s.footprint.y1 - s.footprint.y0)}] → ${res.levels[rl.index + 1]?.level.id ?? '?'}`);
-  const fx = l.fixtures.filter((f) => !f.auto);
-  if (fx.length) lines.push(` placed items: ${fx.map((f) => `${f.id} ${f.kind} in ${f.room}`).join(', ')}`);
-  const auto = l.fixtures.filter((f) => f.auto);
-  if (auto.length) lines.push(` furniture (auto): ${summarizeAuto(auto.map((f) => f.kind))}`);
+  // Furniture by room: the main pieces by id (so "the bed" or "this sofa" can be changed), small things counted.
+  const byRoom = new Map<string, typeof rl.fixtures>();
+  for (const f of rl.fixtures) {
+    if (!byRoom.has(f.room)) byRoom.set(f.room, []);
+    byRoom.get(f.room)!.push(f);
+  }
+  for (const [roomId, fx] of byRoom) {
+    const main = fx.filter((f) => !MINOR.has(f.kind));
+    const minor = fx.filter((f) => MINOR.has(f.kind));
+    const parts = main.map((f) => `${f.id} ${f.kind}${f.wall ? ` on ${f.wall}` : ''}${f.auto ? '' : ' (placed)'}`);
+    if (minor.length) parts.push(summarizeAuto(minor.map((f) => f.kind)));
+    lines.push(` furniture ${roomId}: ${parts.join(', ')}`);
+  }
   return lines;
 }
+
+/** Pieces that are listed only as counts in the summary. */
+const MINOR = new Set(['base_cabinet', 'upper_cabinet', 'dining_chair', 'bar_stool', 'nightstand', 'plant', 'floor_lamp', 'side_table', 'rug', 'rug_large', 'hood', 'tv', 'closet_shelving', 'pantry_shelving', 'office_chair']);
 
 function sides(rl: ResolvedLevel, room: Room): string {
   const parts: string[] = [];

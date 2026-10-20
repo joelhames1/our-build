@@ -41,7 +41,18 @@ export function bedroom(ctx: RoomCtx, kind: 'primary' | 'bedroom' | 'nursery' | 
     };
     const order = ladder.filter((k) => fitsRoom(k));
     let placed = false;
-    for (const k of order.length ? order : ['bed_twin']) {
+    // A bed she's moved or resized: nightstands and walking room go around it where it is.
+    const own = ctx.pinned.find((f) => f.kind.startsWith('bed_') && f.wall);
+    if (own) {
+      const side = own.wall!;
+      const sf = ctx.frame(side)!;
+      const u = sf.axis === 'x' ? own.cx : own.cy;
+      ctx.wall(id(ctx, 'ns1'), 'nightstand', side, u - own.w / 2 - 1.05);
+      ctx.wall(id(ctx, 'ns2'), 'nightstand', side, u + own.w / 2 + 1.05);
+      ctx.keep.push(ctx.strip(sf, u - own.w / 2 - 2.2, u - own.w / 2, 1.6, own.d + 2.3), ctx.strip(sf, u + own.w / 2, u + own.w / 2 + 2.2, 1.6, own.d + 2.3), ctx.strip(sf, u - own.w / 2, u + own.w / 2, own.d, own.d + 2.3));
+      placed = true;
+    }
+    for (const k of placed ? [] : order.length ? order : ['bed_twin']) {
       const s = fixtureSpec(k);
       for (const side of sidesForBig(ctx)) {
         // Room for the bed, nightstands, and 2'-6" to walk around its foot.

@@ -40,6 +40,8 @@ Openings (doors, windows, openings) belong to a host room and a side (N/E/S/W) o
 
 Doors, windows and furniture marked auto were added by the app: every room automatically gets a door to the most sensible neighbor, egress-size windows on its outside walls, and furniture for its type. They regenerate whenever the room changes. Editing one (update_opening / update_fixture) pins it; removing one keeps it removed. So: add rooms and let the app dress them; only place doors and windows yourself when she asks or when the automatic choice is wrong.
 
+Furniture: the <design> lists each room's main pieces by id ("furniture r9: af_r9_bed bed_queen on W, ..."). To move one, update_fixture with a wall (and offset along it) or an at point plus rotation; to resize, step its kind along the size ladder (bed_queen → bed_king, sofa → sectional) or set size. The rest of the room rearranges around anything she moves, and furniture is never allowed to block a doorway or stairs. furnish {room, mode:'none'} empties a room; mode 'auto' refills it.
+
 Kitchens and baths are parametric: set_kitchen controls shape (single_wall, galley, L, U), island, and where the sink, range and fridge go (a side, or 'island'). set_bath controls tub/shower and single/double vanity. The cabinets and fixtures are laid out for you.
 
 Stairs belong to the room they start in and always climb to the next level up. A straight stair for a 10' floor-to-floor is about 3.5' wide and 13' long; an L or U stair is more compact. The upper floor needs a hall or landing where the stair arrives.

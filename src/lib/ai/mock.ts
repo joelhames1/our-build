@@ -2,6 +2,7 @@ import type { DesignEvent, DesignRequest } from '@/core/ai/types';
 import type { Issue } from '@/core/model/issues';
 import type { Level, Project, Room, RoomType, Side, Site, Style } from '@/core/model/schema';
 import { BEDROOM_TYPES, isEnclosed, isOutdoor } from '@/core/model/schema';
+import { fixtureSpec } from '@/core/catalog/fixtures';
 import { applyOps } from '@/core/ops/apply';
 import { roomBox } from '@/core/ops/geom';
 import { DEFAULT_AREA } from '@/core/ops/helpers/layout';
@@ -436,6 +437,13 @@ export function planEdit(t: string, req: DesignRequest): Plan {
   if (size) {
     const grow = /bigger|larger|wider|longer|grow|expand/.test(size[1]);
     const by = Number(size[2] ?? (/a lot|much/.test(t) ? 4 : /a (little|bit)/.test(t) ? 1 : 2));
+    if (req.selection?.kind === 'fixture') {
+      // Furniture: one size up or down the catalog's ladder (twin, full, queen, king...).
+      const f = p.levels.flatMap((l) => l.fixtures).find((x) => x.id === req.selection!.id);
+      const next = f && (grow ? fixtureSpec(f.kind).bigger : fixtureSpec(f.kind).smaller);
+      if (f && next) return { ops: [{ op: 'update_fixture', fixture: f.id, kind: next, size: undefined }], reply: `I swapped the ${fixtureSpec(f.kind).label} for a ${fixtureSpec(next).label}.` };
+      if (f) return { ops: [], reply: `That ${fixtureSpec(f.kind).label} is already as ${grow ? 'big' : 'small'} as it comes.` };
+    }
     if (req.selection?.kind === 'opening' && /\b(this|it|window|door)\b/.test(t)) {
       const o = p.levels.flatMap((l) => l.openings).find((x) => x.id === req.selection!.id);
       const res = resolve(p);

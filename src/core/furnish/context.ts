@@ -58,6 +58,8 @@ export class RoomCtx {
   readonly keep: Box[] = [];
   readonly placed: Placed[] = [];
   readonly out: Fixture[] = [];
+  /** Pieces in this room edited by hand: they stay where they are and the rest fits around them. */
+  readonly pinned: ResolvedFixture[];
   private readonly skip: Set<string>;
 
   constructor(rl: ResolvedLevel, info: RoomInfo, opts: { pinned: ResolvedFixture[]; skip: Set<string> }) {
@@ -66,6 +68,7 @@ export class RoomCtx {
     this.room = info.room;
     this.inner = info.inner;
     this.skip = opts.skip;
+    this.pinned = opts.pinned;
     this.openings = rl.openings
       .filter((o) => o.room === this.room.id || o.other === this.room.id)
       .map((o) => ({ ...o, here: o.room === this.room.id ? o.side : OPPOSITE[o.side] }));

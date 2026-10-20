@@ -111,7 +111,9 @@ export function kitchen(ctx: RoomCtx, spec: KitchenSpec) {
           const c = (x0 + x1) / 2;
           // An end that meets another run is a corner: fridges there block the counter.
           const cornerEnd = runs.some((o) => o !== r && (o.side === NEXT[r.side] || o.side === PREV[r.side]) && Math.abs(cornerCoord(ctx, o.side) - (x0 === a ? a : b)) < COUNTER + 0.2);
-          const score = (cornerEnd ? 0 : 3) + (r !== sinkAt?.r ? 1 : 0);
+          // Not wedged in a corner, and an easy few steps from the sink.
+          const toSink = sinkAt ? dist2(ctx, r.side, c, sinkAt.r.side, sinkAt.c) : 6;
+          const score = (cornerEnd ? 0 : 3) + (r !== sinkAt?.r ? 0.5 : 0) - Math.max(0, toSink - 7) * 0.4 - Math.max(0, 4 - toSink) * 0.5;
           if (!best || score > best.score) best = { r, c, w: fw, score };
         }
       }
@@ -134,9 +136,21 @@ export function kitchen(ctx: RoomCtx, spec: KitchenSpec) {
     ]) {
       for (const r of pref.length ? pref : runs) {
         let free: Interval[] = r.ivs;
-        for (const t of r.taken) free = subtract(free, t.a - (r === sinkAt?.r ? side : 0), t.b + (r === sinkAt?.r ? side : 0));
-        const best = free.filter(([a, b]) => b - a >= w + 2 * side).sort((p, q) => q[1] - q[0] - (p[1] - p[0]))[0];
-        if (best) return { r, c: (best[0] + best[1]) / 2, w };
+        for (const t of r.taken) free = subtract(free, t.a - side, t.b + side);
+        // As close to the sink as it can be with counter on both sides (and 3' away when on the same run).
+        let best: { c: number; d: number } | null = null;
+        for (const [a, b] of free) {
+          if (b - a < w + 2 * side) continue;
+          const lo = a + side + w / 2;
+          const hi = b - side - w / 2;
+          for (const c of [lo, hi, (lo + hi) / 2]) {
+            const d = sinkAt ? dist2(ctx, r.side, c, sinkAt.r.side, sinkAt.c) : 0;
+            if (sinkAt && r === sinkAt.r && Math.abs(c - sinkAt.c) < 3.5) continue;
+            const score = Math.abs(d - 5.5);
+            if (!best || score < best.d) best = { c, d: score };
+          }
+        }
+        if (best) return { r, c: best.c, w };
       }
     }
     return null;
@@ -155,7 +169,7 @@ export function kitchen(ctx: RoomCtx, spec: KitchenSpec) {
   if (sinkAt) ctx.wall(id('sink'), 'sink', sinkAt.r.side, sinkAt.c, [sinkW, COUNTER]);
   for (const r of runs) for (const t of r.taken.filter((x) => x.what === 'dw')) ctx.wall(id('dw'), 'dishwasher', r.side, (t.a + t.b) / 2, [DW_W, COUNTER]);
   if (rangeAt) {
-    ctx.wall(id('range'), 'range', rangeAt.r.side, rangeAt.c, [rangeAt.w, COUNTER + 0.1]);
+    ctx.wall(id('range'), 'range', rangeAt.r.side, rangeAt.c, [rangeAt.w, COUNTER]);
     ctx.wall(id('hood'), 'hood', rangeAt.r.side, rangeAt.c, [rangeAt.w + 0.25, 1.6]);
   }
   if (fridgeAt) ctx.wall(id('fridge'), 'fridge', fridgeAt.r.side, fridgeAt.c, [fridgeAt.w, 2.6]);
@@ -180,7 +194,15 @@ export function kitchen(ctx: RoomCtx, spec: KitchenSpec) {
 
   // Island: parallel to the main run, a 42" aisle out from the counter.
   const wantIsland = spec.island || islandSink || islandRange;
-  if (wantIsland && spec.shape !== 'galley') island(ctx, spec, runs, id, islandSink, islandRange);
+  const isGalley = runs.length === 2 && runs[0].side === OPPOSITE[runs[1].side];
+  if (wantIsland && !isGalley) island(ctx, spec, runs, id, islandSink, islandRange);
+}
+
+/** Straight-line distance between the fronts of two spots along (possibly different) walls. */
+function dist2(ctx: RoomCtx, s1: Side, u1: number, s2: Side, u2: number): number {
+  const [x1, y1] = ctx.point(s1, u1, COUNTER);
+  const [x2, y2] = ctx.point(s2, u2, COUNTER);
+  return Math.hypot(x1 - x2, y1 - y2);
 }
 
 function cornerCoord(ctx: RoomCtx, side: Side): number {
@@ -199,21 +221,25 @@ function island(ctx: RoomCtx, spec: KitchenSpec, runs: Run[], id: (s: string) =>
   let b = sf.b - 3;
   for (const r of legs) {
     const lf = ctx.frame(r.side)!;
-    const edge = lf.face + lf.into * (COUNTER + AISLE);
+    // Measured from a fridge's front, which stands proud of the counters.
+    const edge = lf.face + lf.into * (2.6 + AISLE);
     if (lf.into > 0) a = Math.max(a, edge);
     else b = Math.min(b, edge);
   }
-  const near = COUNTER + AISLE;
   const acrossRoom = ctx.across(main.side);
   // Behind the island: 3' to a wall, or just a foot if that side is open to the next room.
   const farSide = OPPOSITE[main.side];
   const farOpen = ctx.solid(farSide).reduce((s, [x, y]) => s + (y - x), 0) < 0.5 * (sf.b - sf.a);
   const behind = farOpen ? 1 : 3;
-  if (acrossRoom < near + deep + behind) return;
+  if (acrossRoom < COUNTER + AISLE + deep + behind) return;
   const want = spec.islandSize?.[0] ?? Math.min(8, Math.max(4, span[1] - span[0] - 2));
   const mid = (Math.max(a, span[0]) + Math.min(b, span[1])) / 2;
   for (let L = Math.min(want, b - a); L >= 4; L -= 0.5) {
     const c = Math.min(Math.max(mid, a + L / 2), b - L / 2);
+    // 42" from whatever is across from it: counters, or a fridge that sticks out further.
+    const across = main.taken.filter((t) => t.b > c - L / 2 - 1.5 && t.a < c + L / 2 + 1.5 && t.what === 'fridge').length ? 2.6 : COUNTER;
+    const near = across + AISLE;
+    if (acrossRoom < near + deep + behind) continue;
     const [cx, cy] = ctx.point(main.side, c, near + deep / 2);
     const facing = OPPOSITE[main.side];
     const box = ctx.float(id('island'), 'island', cx, cy, facing, [L, deep]);
@@ -273,7 +299,8 @@ function shapeWalls(ctx: RoomCtx, shape: KitchenSpec['shape'], total: (s: Side) 
         ['N', 'S'],
         ['E', 'W'],
       ];
-      const fit = pairs.filter(([a, b]) => ok(a, 3) && ok(b, 3) && ctx.across(a) >= 2 * COUNTER + 3);
+      // Two runs facing each other across a 3' to 7' aisle; wider than that it's really an L with an island.
+      const fit = pairs.filter(([a, b]) => ok(a, 3) && ok(b, 3) && ctx.across(a) >= 2 * COUNTER + 3 && ctx.across(a) <= 2 * COUNTER + 7);
       if (!fit.length) return L();
       return fit.sort((p, q) => total(q[0]) + total(q[1]) - total(p[0]) - total(p[1]))[0];
     }

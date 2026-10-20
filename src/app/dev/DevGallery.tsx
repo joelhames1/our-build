@@ -15,6 +15,7 @@ const ALL: Record<string, () => ReturnType<typeof BLANK>> = {
 };
 import type { RenderMode } from '@/viewer/materials';
 import type { ViewMode } from '@/viewer/Scene';
+import { PlanView } from '@/ui/studio/PlanView';
 
 const Scene = dynamic(() => import('@/viewer/Scene').then((m) => m.Scene), { ssr: false });
 
@@ -33,7 +34,11 @@ export function DevGallery() {
 
   return (
     <div className="fixed inset-0">
-      <Scene resolved={resolved} mode={mode} view={view} level={level} hour={hour} selected={selected} onPick={(o) => setSelected(o)} onMiss={() => setSelected(null)} testMode={testMode} orbit={Number(params.get('orbit') ?? 0)} ao={(params.get('ao') as 'on' | 'off' | null) ?? 'auto'} />
+      {view === 'plan' ? (
+        <PlanView resolved={resolved} level={level} selected={selected} onPick={setSelected} />
+      ) : (
+        <Scene resolved={resolved} mode={mode} view={view} level={level} hour={hour} selected={selected} onPick={(o) => setSelected(o)} onMiss={() => setSelected(null)} testMode={testMode} orbit={Number(params.get('orbit') ?? 0)} ao={(params.get('ao') as 'on' | 'off' | null) ?? 'auto'} />
+      )}
       <div className="glass absolute left-4 top-4 flex flex-wrap items-center gap-2 rounded-2xl p-2 text-sm">
         <select className="rounded-lg bg-white/70 px-2 py-1" value={name} onChange={(e) => setName(e.target.value)}>
           {Object.keys(ALL).map((k) => (
@@ -45,7 +50,7 @@ export function DevGallery() {
             {m}
           </button>
         ))}
-        {(['exterior', 'dollhouse'] as const).map((v) => (
+        {(['exterior', 'dollhouse', 'plan'] as const).map((v) => (
           <button key={v} className={`rounded-lg px-2 py-1 ${view === v ? 'bg-ink text-paper' : ''}`} onClick={() => setView(v)}>
             {v}
           </button>

@@ -56,7 +56,9 @@ export function furnishAll(p: Project) {
           }
           case 'loft':
           case 'studio':
-            living(ctx, {});
+            // A loft named for sleeping is a bedroom up in the eaves.
+            if (room.type === 'loft' && /sleep|bed/i.test(room.name)) bedroom(ctx, 'bedroom', true);
+            else living(ctx, {});
             break;
           case 'dining':
             dining(ctx);

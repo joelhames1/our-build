@@ -2,7 +2,9 @@ import type { Issue } from '../model/issues';
 import type { Room } from '../model/schema';
 import { BEDROOM_TYPES, HABITABLE_TYPES, isDoorType, isEnclosed, isOutdoor, isPassable, isWindowType } from '../model/schema';
 import { ftIn } from '../model/units';
-import { difference, multiArea, multiBox, roomRing, union } from '../geometry/polygon';
+import { type Box, difference, multiArea, multiBox, roomRing, union } from '../geometry/polygon';
+import type { ResolvedFixture } from '../geometry/fixtures';
+import { fixtureSpec } from '../catalog/fixtures';
 import type { Resolved, ResolvedLevel } from '../resolve';
 
 /**
@@ -12,7 +14,7 @@ import type { Resolved, ResolvedLevel } from '../resolve';
 export function checkRules(res: Resolved): Issue[] {
   const out: Issue[] = [];
   for (const rl of res.levels) {
-    out.push(...sizes(rl), ...egressAndLight(rl, res), ...reach(rl), ...closets(rl), ...stairs(rl), ...gaps(rl), ...garage(rl));
+    out.push(...sizes(rl), ...egressAndLight(rl, res), ...reach(rl), ...closets(rl), ...stairs(rl), ...gaps(rl), ...garage(rl), ...kitchens(rl), ...baths(rl), ...furniture(rl));
   }
   out.push(...cantilever(res));
   return out;
@@ -179,6 +181,119 @@ function cantilever(res: Resolved): Issue[] {
     const depth = Math.min(b.x1 - b.x0, b.y1 - b.y0);
     if (depth > 2.05 && multiArea(over) > 8) {
       out.push({ rule: 'struct.cantilever', severity: 'warning', message: `${res.levels[i].level.name} hangs ${ftIn(depth)} past the floor below. Over 2' needs real structure (posts or beams).`, level: res.levels[i].level.id, ids: [res.levels[i].level.id] });
+    }
+  }
+  return out;
+}
+
+// --- kitchens, baths and furniture ---------------------------------------------------------------
+
+/** Clear distance between two footprints (negative when they overlap). Corner to corner is a true distance. */
+const gap = (a: Box, b: Box) => {
+  const dx = Math.max(a.x0 - b.x1, b.x0 - a.x1);
+  const dy = Math.max(a.y0 - b.y1, b.y0 - a.y1);
+  return dx > 0 && dy > 0 ? Math.hypot(dx, dy) : Math.max(dx, dy);
+};
+const center = (f: ResolvedFixture): [number, number] => [f.cx, f.cy];
+const dist = (a: [number, number], b: [number, number]) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+const label = (f: ResolvedFixture) => fixtureSpec(f.kind).label;
+
+function kitchens(rl: ResolvedLevel): Issue[] {
+  const out: Issue[] = [];
+  for (const info of rl.rooms.values()) {
+    const r = info.room;
+    if (r.type !== 'kitchen' || r.furnish === 'none') continue;
+    const fx = rl.fixtures.filter((f) => f.room === r.id);
+    const sink = fx.find((f) => f.kind === 'sink' || f.kind === 'island_sink');
+    const range = fx.find((f) => f.kind === 'range' || f.kind === 'island_cooktop');
+    const fridge = fx.find((f) => f.kind === 'fridge');
+    const missing = [!sink && 'a sink', !range && 'a range', !fridge && 'a refrigerator'].filter(Boolean) as string[];
+    if (missing.length) {
+      out.push({ rule: 'kitchen.missing', severity: 'warning', message: `${name(r)} has no room for ${missing.join(' or ')}. A bigger kitchen or a different layout would fit them.`, level: rl.level.id, ids: [r.id] });
+    } else {
+      // The work triangle: sink, range and fridge within easy reach of each other.
+      const legs = [dist(center(sink!), center(range!)), dist(center(range!), center(fridge!)), dist(center(fridge!), center(sink!))];
+      const total = legs.reduce((a, b) => a + b, 0);
+      if (total > 28) out.push({ rule: 'kitchen.triangle', severity: 'tip', message: `The walk between sink, range and fridge in ${name(r)} adds up to about ${Math.round(total)}'. Under 26' keeps cooking easy.`, level: rl.level.id, ids: [r.id, sink!.id, range!.id, fridge!.id] });
+      else if (total < 11) out.push({ rule: 'kitchen.triangle', severity: 'tip', message: `Sink, range and fridge in ${name(r)} are bunched within ${Math.round(total)}'; a little more counter between them helps.`, level: rl.level.id, ids: [r.id] });
+    }
+    // Aisles at the island.
+    const island = fx.find((f) => f.kind === 'island');
+    if (island) {
+      for (const f of fx) {
+        if (f === island || !f.solid || f.z0 - rl.elevation > 2 || f.kind === 'bar_stool') continue;
+        const g = gap(island.box, f.box);
+        if (g >= 0 && g < 3.4) {
+          out.push({ rule: 'kitchen.aisle', severity: 'tip', message: `The aisle between the island and the ${label(f)} in ${name(r)} is ${ftIn(g)}; 42" lets two people pass.`, level: rl.level.id, ids: [island.id, f.id] });
+          break;
+        }
+      }
+    } else if (r.kitchen?.island || r.kitchen?.sink === 'island' || r.kitchen?.range === 'island') {
+      out.push({
+        rule: 'kitchen.island',
+        severity: 'tip',
+        message:
+          r.kitchen?.shape === 'galley'
+            ? `A galley kitchen like ${name(r)} has no room for an island; an L-shaped layout would make space for one.`
+            : `${name(r)} isn't big enough for an island: it needs about 3'-6" of aisle all round. Making the kitchen deeper would fit one.`,
+        level: rl.level.id,
+        ids: [r.id],
+        fix: [{ op: 'set_kitchen', room: r.id, island: false, ...(r.kitchen?.sink === 'island' ? { sink: undefined } : {}), ...(r.kitchen?.range === 'island' ? { range: undefined } : {}) }],
+      });
+    }
+  }
+  return out;
+}
+
+function baths(rl: ResolvedLevel): Issue[] {
+  const out: Issue[] = [];
+  for (const f of rl.fixtures) {
+    if (f.kind !== 'toilet' || f.auto) continue;
+    const info = rl.rooms.get(f.room);
+    if (!info) continue;
+    // 15" from the centerline to anything beside it, 21" clear in front.
+    const across = f.facing === 'N' || f.facing === 'S' ? 'x' : 'y';
+    const side: Box = across === 'x' ? { x0: f.cx - 1.25, x1: f.cx + 1.25, y0: f.box.y0, y1: f.box.y1 } : { y0: f.cy - 1.25, y1: f.cy + 1.25, x0: f.box.x0, x1: f.box.x1 };
+    const front: Box =
+      f.facing === 'N' ? { ...f.box, y0: f.box.y1, y1: f.box.y1 + 1.75 } : f.facing === 'S' ? { ...f.box, y1: f.box.y0, y0: f.box.y0 - 1.75 } : f.facing === 'E' ? { ...f.box, x0: f.box.x1, x1: f.box.x1 + 1.75 } : { ...f.box, x1: f.box.x0, x0: f.box.x0 - 1.75 };
+    const inner = info.inner;
+    const outside = (b: Box) => b.x0 < inner.x0 - 0.05 || b.x1 > inner.x1 + 0.05 || b.y0 < inner.y0 - 0.05 || b.y1 > inner.y1 + 0.05;
+    const hits = (b: Box) => rl.fixtures.some((o) => o !== f && o.solid && o.z0 - rl.elevation < 3 && gap(o.box, b) < -0.05);
+    if (outside(side) || hits(side) || outside(front) || hits(front)) {
+      out.push({ rule: 'bath.toilet', severity: 'warning', message: `The toilet in ${info.room.name} is tight: it wants 15" from its center to anything beside it and 21" clear in front.`, level: rl.level.id, ids: [f.id] });
+    }
+  }
+  return out;
+}
+
+function furniture(rl: ResolvedLevel): Issue[] {
+  const out: Issue[] = [];
+  // Hand-placed pieces can end up in a doorway; auto ones never do.
+  for (const o of rl.openings) {
+    if (!isPassable(o.type) || o.type === 'garage_door') continue;
+    for (const roomId of [o.room, o.other]) {
+      if (!roomId) continue;
+      const info = rl.rooms.get(roomId);
+      if (!info) continue;
+      const inPos = roomId === o.room ? o.hostSign === 1 : o.hostSign === -1;
+      const n0 = o.wall.coord + (inPos ? 1 : -1) * (o.wall.thickness / 2);
+      const n1 = n0 + (inPos ? 1 : -1) * 2;
+      const [lo, hi] = n0 < n1 ? [n0, n1] : [n1, n0];
+      const zone: Box = o.axis === 'x' ? { x0: o.u0, x1: o.u1, y0: lo, y1: hi } : { y0: o.u0, y1: o.u1, x0: lo, x1: hi };
+      const f = rl.fixtures.find((x) => !x.auto && x.solid && x.room === roomId && x.z0 - rl.elevation < 2 && gap(x.box, zone) < -0.1);
+      if (f) {
+        const other = roomId === o.room ? o.other : o.room;
+        const to = other ? (rl.rooms.get(other)?.room.name ?? 'the next room') : 'outside';
+        out.push({ rule: 'fixture.door', severity: 'warning', message: `The ${label(f)} in ${info.room.name} is in the way of the door to ${to}.`, level: rl.level.id, ids: [f.id, o.id], fix: [{ op: 'remove_fixture', fixture: f.id }] });
+      }
+    }
+  }
+  for (const info of rl.rooms.values()) {
+    const r = info.room;
+    if ((r.type !== 'bedroom' && r.type !== 'primary_bedroom') || r.furnish === 'none') continue;
+    if (rl.level.suppress.some((id) => id.startsWith(`af_${r.id}_bed`))) continue;
+    if (!rl.fixtures.some((f) => f.room === r.id && f.kind.startsWith('bed_'))) {
+      out.push({ rule: 'bedroom.bed', severity: 'tip', message: `No bed fits in ${name(r)} with room to walk around it. A little more space or one less door would help.`, level: rl.level.id, ids: [r.id] });
     }
   }
   return out;

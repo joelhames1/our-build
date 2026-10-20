@@ -408,7 +408,7 @@ const modern: Gen = (p) => {
     levels: [
       {
         name: 'Main Floor',
-        node: X(fixed(pubW, Y(fixed(8, X(flex(1, R('Entry', 'foyer')), fixed(half ? 6 : 0.01, R('Powder Room', 'half_bath')))), flex(1, X(flex(1.6, R('Great Room', 'great_room')), flex(1, R('Kitchen', 'kitchen', { kitchen: { shape: 'galley', island: true } })))))), flex(1, R('__wing', 'hall'))),
+        node: X(fixed(pubW, Y(fixed(8, X(flex(1, R('Entry', 'foyer')), fixed(half ? 6 : 0.01, R('Powder Room', 'half_bath')))), flex(1, X(flex(1.6, R('Great Room', 'great_room')), flex(1, R('Kitchen', 'kitchen', { kitchen: { shape: 'L', island: true } })))))), flex(1, R('__wing', 'hall'))),
         program: wing,
         programBox: { x0: pubW, y0: 0, x1: W, y1: D },
         hallAxis: 'x',

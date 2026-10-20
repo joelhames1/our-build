@@ -108,12 +108,19 @@ export function living(ctx: RoomCtx, opts: { fireplace?: { side: Side; u: number
     for (const s of order) {
       if (ctx.across(s) < 10) continue;
       // The TV hangs at eye height, so it has to miss the windows; the console goes under it.
-      const tv = ctx.wallSlot(s, 4.8, 0.3, 2.7, { mount: 3.6 });
+      let tv: { u: number; w: number } | null = null;
+      for (const w of [4.8, 4, 3.4]) {
+        const slot = ctx.wallSlot(s, w, 0.3, 2.7, { mount: 3.6 });
+        if (slot) {
+          tv = { u: slot.u, w };
+          break;
+        }
+      }
       if (!tv) continue;
-      const con = ctx.wallSlot(s, 6, 1.6 + 2, 2, { prefer: tv.u });
+      const con = ctx.wallSlot(s, Math.max(tv.w + 0.8, 5), 1.6, 2, { prefer: tv.u, clear: 2 });
       if (!con || Math.abs(con.u - tv.u) > 0.75) continue;
-      if (ctx.wall(id(ctx, 'console'), 'tv_console', s, con.u)) {
-        ctx.wall(id(ctx, 'tv'), 'tv', s, tv.u);
+      if (ctx.wall(id(ctx, 'console'), 'tv_console', s, con.u, [Math.max(tv.w + 0.8, 5), 1.6])) {
+        ctx.wall(id(ctx, 'tv'), 'tv', s, tv.u, [tv.w, 0.25]);
         focal = s;
         focalU = tv.u;
         break;
@@ -122,10 +129,11 @@ export function living(ctx: RoomCtx, opts: { fireplace?: { side: Side; u: number
   }
   if (!focal) {
     // No focal wall: a sofa against the longest wall and a coffee table.
+    // Sofa backs sit low enough to go under a window.
     const s = firstSlot(ctx, sidesForBig(ctx), [
       [7.5, 3.1, 3],
       [5.5, 3.1, 3],
-    ], 2.7);
+    ], 2.4);
     if (s) {
       ctx.wall(id(ctx, 'sofa'), s.w > 6 ? 'sofa' : 'loveseat', s.side, s.u);
       const [x, y] = ctx.point(s.side, s.u, 3.1 + 1.5 + 1);
@@ -146,7 +154,7 @@ export function living(ctx: RoomCtx, opts: { fireplace?: { side: Side; u: number
       ['sofa', 7.5],
       ['loveseat', 5.5],
     ] as const) {
-      const slot = ctx.wallSlot(far, w, 3.1, 2.7, { prefer: u });
+      const slot = ctx.wallSlot(far, w, 3.1, 2.4, { prefer: u });
       if (slot && Math.abs(slot.u - u) < 2 && ctx.wall(id(ctx, 'sofa'), k, far, slot.u)) {
         sofaN = depth - 3.1 / 2;
         sofaKind = k;

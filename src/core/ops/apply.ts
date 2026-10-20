@@ -8,7 +8,7 @@ import { resolve } from '../resolve';
 import { checkRules } from '../rules';
 import { buildTemplate } from '../templates';
 import { autoDress } from './helpers/autoDress';
-import { furnishAll } from './helpers/furnish';
+import { furnishAll } from '../furnish';
 import { DEFAULT_AREA, HALL_W, MIN_WIDTH, type PackRoom, packAlongHall } from './helpers/layout';
 import { OpError, carve, difference, intersection, levelFootprint, neighbors, overlapping, roomArea, roomBox, roomMulti, setRoomShape, snapRect, stretchLevels, union } from './geom';
 import { type Op, Op as OpSchema } from './schema';
@@ -403,7 +403,10 @@ function runOp(d: Draft, op: Op) {
     case 'remove_fixture': {
       for (const level of p.levels) {
         const n = level.fixtures.length;
+        const gone = level.fixtures.find((f) => f.id === op.fixture);
         level.fixtures = level.fixtures.filter((f) => f.id !== op.fixture);
+        // Auto pieces would come right back; remember that this one was taken out.
+        if (gone?.auto && !level.suppress.includes(gone.id)) level.suppress.push(gone.id);
         if (level.fixtures.length < n) {
           d.log.push(`Removed ${op.fixture}.`);
           return;

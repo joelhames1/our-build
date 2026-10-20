@@ -6,6 +6,7 @@ import { MULLION } from '@/core/catalog/openings';
 import type { Project } from '@/core/model/schema';
 import { isDoorType, isOutdoor } from '@/core/model/schema';
 import type { Resolved, ResolvedLevel } from '@/core/resolve';
+import { addFurniture } from './furniture';
 import { BoxBatch, type MeshGroup } from './geometry';
 
 /**
@@ -56,6 +57,7 @@ export function buildParts(res: Resolved, opts: PartsOptions = {}): MeshGroup[] 
     }
     railings(batch, rl, cut);
     porchPosts(batch, rl, res, cut);
+    addFurniture(batch, rl.fixtures, cut === undefined ? undefined : rl.elevation + cut);
   }
   return batch.build();
 }

@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { pointInRing } from '@/core/geometry/polygon';
 import type { Resolved } from '@/core/resolve';
 import { walkInput, useWalkState } from './input';
-import { EYE, STEP, buildWalkWorld, floorAt, slide } from './world';
+import { EYE, STEP, buildWalkWorld, floorAt, freeSpot, slide } from './world';
 
 const WALK = 4.6;
 const RUN = 9;
@@ -115,8 +115,8 @@ export function WalkControls({ resolved }: { resolved: Resolved }) {
     const s = st.current;
     if (walkInput.teleport) {
       const t = walkInput.teleport;
-      s.x = t.x;
-      s.y = t.y;
+      // Land somewhere clear: room centers are often where the coffee table is.
+      [s.x, s.y] = freeSpot(world, t.level, t.x, t.y);
       s.level = t.level;
       if (t.yaw !== undefined) s.yaw = t.yaw;
       s.z = floorAt(world, s.level, s.x, s.y)?.z ?? s.z;

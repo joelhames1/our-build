@@ -72,6 +72,12 @@ export function buildWalkWorld(res: Resolved): WalkWorld {
         }
       }
     }
+    // Furniture standing on the floor is in the way too (rugs and tucked-in chairs aren't).
+    for (const f of rl.fixtures) {
+      if (!f.solid || f.z0 - rl.elevation > 2) continue;
+      const b = f.box;
+      segs.push({ ax: b.x0, ay: b.y0, bx: b.x1, by: b.y0 }, { ax: b.x1, ay: b.y0, bx: b.x1, by: b.y1 }, { ax: b.x1, ay: b.y1, bx: b.x0, by: b.y1 }, { ax: b.x0, ay: b.y1, bx: b.x0, by: b.y0 });
+    }
     const floors = [...rl.rooms.values()]
       .filter((i) => i.room.type !== 'open_to_below')
       .map((i) => ({ ring: i.ring as [number, number][], z: isOutdoor(i.room.type) ? rl.elevation - 0.33 : rl.elevation, room: i.room.id, name: i.room.name }));
@@ -263,4 +269,29 @@ export function walkableRooms(w: WalkWorld, cell = 0.5, debug?: (grid: { x0: num
   }
   debug?.({ x0, y0, nx, ny, cell, clear, seen });
   return out;
+}
+
+/** The nearest spot to (x, y) on a level where you can stand without touching anything. */
+export function freeSpot(w: WalkWorld, level: number, x: number, y: number): [number, number] {
+  const L = w.levels[level];
+  if (!L) return [x, y];
+  const clearAt = (px: number, py: number) =>
+    floorAt(w, level, px, py) !== null &&
+    L.segs.every((g) => {
+      const vx = g.bx - g.ax;
+      const vy = g.by - g.ay;
+      const l2 = vx * vx + vy * vy || 1e-9;
+      const t = Math.max(0, Math.min(1, ((px - g.ax) * vx + (py - g.ay) * vy) / l2));
+      return Math.hypot(px - g.ax - vx * t, py - g.ay - vy * t) >= RADIUS;
+    });
+  if (clearAt(x, y)) return [x, y];
+  for (let r = 0.5; r <= 12; r += 0.5) {
+    for (let k = 0; k < 16; k++) {
+      const a = (k / 16) * Math.PI * 2;
+      const px = x + Math.cos(a) * r;
+      const py = y + Math.sin(a) * r;
+      if (clearAt(px, py)) return [px, py];
+    }
+  }
+  return [x, y];
 }

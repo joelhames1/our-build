@@ -1,5 +1,6 @@
 import earcut from 'earcut';
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import type { Face3, V3 } from '@/core/geometry/faces';
 
 /** Plan (x east, y north, z up) → three.js (x, y up, z south). */
@@ -88,6 +89,23 @@ export class BoxBatch {
   add(mat: string, owner: string, center: V3, size: V3, rotZ = 0) {
     const geo = new THREE.BoxGeometry(size[0], size[2], size[1]);
     if (rotZ) geo.rotateY(rotZ);
+    const c = toThree(center);
+    geo.translate(c[0], c[1], c[2]);
+    this.push(mat, owner, geo);
+  }
+
+  /** A box with softened edges (upholstery, mattresses). */
+  addRounded(mat: string, owner: string, center: V3, size: V3, radius = 0.15) {
+    const r = Math.min(radius, size[0] / 2 - 0.01, size[1] / 2 - 0.01, size[2] / 2 - 0.01);
+    const geo = r > 0.02 ? new RoundedBoxGeometry(size[0], size[2], size[1], 2, r) : new THREE.BoxGeometry(size[0], size[2], size[1]);
+    const c = toThree(center);
+    geo.translate(c[0], c[1], c[2]);
+    this.push(mat, owner, geo);
+  }
+
+  /** A low-poly ball (foliage). */
+  addBall(mat: string, owner: string, center: V3, radius: number) {
+    const geo = new THREE.IcosahedronGeometry(radius, 1);
     const c = toThree(center);
     geo.translate(c[0], c[1], c[2]);
     this.push(mat, owner, geo);

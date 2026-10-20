@@ -16,6 +16,8 @@ export interface FixtureSpec {
   smaller?: string;
   /** Collides with people walking (false for rugs). */
   solid?: boolean;
+  /** Height of its underside above the floor, for things hung on the wall or set on a counter. */
+  mount?: number;
 }
 
 const F = (kind: string, label: string, w: number, d: number, h: number, front: number, wall = true, extra: Partial<FixtureSpec> = {}): FixtureSpec => ({ kind, label, w, d, h, front, wall, solid: true, ...extra });
@@ -40,6 +42,7 @@ export const FIXTURES: Record<string, FixtureSpec> = Object.fromEntries(
     F('coffee_table', 'coffee table', 4, 2, 1.4, 1.5, false),
     F('side_table', 'side table', 1.6, 1.6, 2, 0, false),
     F('tv_console', 'media console', 6, 1.6, 2, 6),
+    F('tv', 'television', 4.6, 0.25, 2.7, 0, true, { mount: 3.6, solid: false }),
     F('bookshelf', 'bookshelf', 3, 1.2, 6.5, 2.5),
     F('fireplace', 'fireplace', 5.5, 2, 4.5, 3),
     F('piano', 'piano', 5, 2.2, 4, 3),
@@ -51,19 +54,22 @@ export const FIXTURES: Record<string, FixtureSpec> = Object.fromEntries(
     F('dining_table', 'dining table', 6, 3.5, 2.5, 3, false, { bigger: 'dining_table_large', smaller: 'round_table' }),
     F('dining_table_large', 'large dining table', 8, 3.75, 2.5, 3, false, { smaller: 'dining_table' }),
     F('round_table', 'round table', 4, 4, 2.5, 3, false, { bigger: 'dining_table' }),
-    F('dining_chair', 'dining chair', 1.6, 1.7, 3, 0, false),
+    // Chairs and stools tuck under tables and counters, so they don't claim floor.
+    F('dining_chair', 'dining chair', 1.6, 1.7, 3, 0, false, { solid: false }),
     F('buffet', 'sideboard', 5.5, 1.7, 2.8, 3),
     // Kitchen (counters and appliances are placed by the kitchen layout)
     F('base_cabinet', 'base cabinets', 2, 2, 3, 3.5),
-    F('upper_cabinet', 'upper cabinets', 2, 1.1, 2.5, 0),
+    F('upper_cabinet', 'upper cabinets', 2, 1.1, 2.5, 0, true, { mount: 4.5, solid: false }),
     F('island', 'kitchen island', 6, 3, 3, 3.5, false),
     F('sink', 'sink', 2.75, 2, 3, 3.5),
     F('range', 'range', 2.5, 2.2, 3, 3.5),
     F('fridge', 'refrigerator', 3, 2.6, 6, 3.5),
     F('dishwasher', 'dishwasher', 2, 2, 3, 3.5),
-    F('hood', 'range hood', 2.5, 1.6, 1.5, 0),
+    F('hood', 'range hood', 2.5, 1.6, 1.6, 0, true, { mount: 5.4, solid: false }),
+    F('island_sink', 'island sink', 2.75, 1.8, 0.1, 0, false, { mount: 3, solid: false }),
+    F('island_cooktop', 'cooktop', 2.5, 1.8, 0.1, 0, false, { mount: 3, solid: false }),
     F('pantry_cabinet', 'pantry cabinet', 3, 2, 7.5, 3),
-    F('bar_stool', 'stool', 1.4, 1.4, 2.5, 0, false),
+    F('bar_stool', 'stool', 1.4, 1.4, 2.5, 0, false, { solid: false }),
     // Bath
     F('toilet', 'toilet', 1.7, 2.4, 2.6, 1.75),
     F('vanity', 'vanity', 3, 1.8, 2.8, 2.5, true, { bigger: 'vanity_double' }),
@@ -77,10 +83,12 @@ export const FIXTURES: Record<string, FixtureSpec> = Object.fromEntries(
     F('dryer', 'dryer', 2.3, 2.3, 3.2, 3.5),
     F('utility_sink', 'utility sink', 2, 1.8, 3, 3),
     F('bench', 'bench', 4, 1.4, 1.5, 3),
+    F('closet_shelving', 'closet shelving', 4, 2, 7, 2.5),
+    F('pantry_shelving', 'pantry shelving', 4, 1.3, 7, 2.5),
     F('cubbies', 'cubbies', 5, 1.4, 6, 3),
     F('desk', 'desk', 4.5, 2.2, 2.5, 3, true, { bigger: 'desk_large' }),
     F('desk_large', 'large desk', 6, 2.6, 2.5, 3, true, { smaller: 'desk' }),
-    F('office_chair', 'desk chair', 2, 2, 3.2, 0, false),
+    F('office_chair', 'desk chair', 2, 2, 3.2, 0, false, { solid: false }),
     F('workbench', 'workbench', 6, 2.2, 3, 3),
     F('car', 'car', 6.2, 15, 4.8, 2, false),
     F('treadmill', 'treadmill', 3, 6.5, 4.5, 2),

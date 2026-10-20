@@ -18,6 +18,38 @@ const FLOOR: Record<string, string> = {
 const CLAY = '#f2eee7';
 const CLAY_DARK = '#e6e0d6';
 
+/** Furniture colors: [clay model, materials]. */
+const FURNITURE: Record<string, [string, string]> = {
+  fabric: ['#e4ddd2', '#b9b0a3'],
+  cushion: ['#ebe5db', '#d3c9bb'],
+  linen: ['#f7f4ee', '#f4f1ea'],
+  blanket: ['#ddd6ca', '#9fb0b8'],
+  wood: ['#e2d9cc', '#b08a62'],
+  wood_dark: ['#cfc6b8', '#6b5240'],
+  cabinet: ['#ece7de', '#e9e5dc'],
+  toekick: ['#d6cfc3', '#4a4642'],
+  counter: ['#f6f3ee', '#d8d4cc'],
+  steel: ['#dcd8d1', '#c3c5c6'],
+  appliance: ['#efebe4', '#f1f0ec'],
+  porcelain: ['#fbfaf7', '#fbfbf8'],
+  porcelain_in: ['#f1eee8', '#e9eef0'],
+  mirror: ['#e9eef0', '#cfd8dc'],
+  screen: ['#cdc6bb', '#1f2124'],
+  shade: ['#f6f2ea', '#f3ead9'],
+  rug: ['#e6dfd3', '#c9b7a0'],
+  rug_border: ['#ded6c9', '#b39c80'],
+  books: ['#ded6ca', '#8a5a4a'],
+  books2: ['#e4ddd2', '#51656e'],
+  books3: ['#dcd4c7', '#c8b48e'],
+  pot: ['#e0d5c6', '#b5734f'],
+  plant: ['#d6d9c8', '#61804f'],
+  firebox: ['#bfb7ab', '#2a2522'],
+  car: ['#ddd6cb', '#6d7f8c'],
+  car_glass: ['#d3cdc3', '#38434a'],
+  tire: ['#c7c0b5', '#26282a'],
+  water: ['#dfe7e8', '#7fb3c2'],
+};
+
 /** Texture pattern for a material key in materials mode. */
 function patternFor(key: string, style: Style): Parameters<typeof proceduralTexture>[0] | null {
   if (key === 'siding') return style.wall;
@@ -37,6 +69,8 @@ function patternFor(key: string, style: Style): Parameters<typeof proceduralText
 
 export function colorFor(key: string, style: Style, mode: RenderMode): string {
   if (key === 'glass') return '#a9c1cc';
+  const fur = FURNITURE[key];
+  if (fur) return fur[mode === 'clay' ? 0 : 1];
   if (key === 'cap') return '#4a4541';
   if (key === 'flue') return mode === 'clay' ? CLAY_DARK : '#8a5a44';
   if (key === 'cap_stone') return mode === 'clay' ? CLAY_DARK : '#8f8a82';
@@ -95,8 +129,8 @@ export function materialFor(key: string, style: Style, mode: RenderMode): THREE.
   } else {
     const std = new THREE.MeshStandardMaterial({
       color,
-      roughness: key === 'metal' ? 0.4 : key === 'roof' && style.roofMaterial === 'standing_seam' ? 0.55 : 0.88,
-      metalness: key === 'metal' ? 0.6 : key === 'roof' && style.roofMaterial === 'standing_seam' ? 0.35 : 0,
+      roughness: key === 'metal' ? 0.4 : key === 'steel' ? 0.35 : key === 'mirror' ? 0.05 : key === 'porcelain' || key === 'counter' ? 0.3 : key === 'roof' && style.roofMaterial === 'standing_seam' ? 0.55 : 0.88,
+      metalness: key === 'metal' ? 0.6 : key === 'steel' && mode === 'materials' ? 0.55 : key === 'mirror' && mode === 'materials' ? 0.9 : key === 'roof' && style.roofMaterial === 'standing_seam' ? 0.35 : 0,
     });
     if (pattern) {
       const tex = proceduralTexture(pattern, color);

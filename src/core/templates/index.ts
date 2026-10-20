@@ -457,7 +457,7 @@ const tinyHouse: Gen = (p) => {
   const box = { x0: 0, y0: 0, x1: W, y1: D };
   return {
     footprint: box,
-    levels: [{ name: 'Main Floor', node: X(flex(1, R('Living', 'living', { ceiling: 'vaulted' })), fixed(8, Y(flex(1, R('Kitchen', 'kitchen', { kitchen: { shape: 'single_wall' } })), fixed(6.5, R('Bath', 'bath', { bath: { bathing: 'shower' } })))), fixed(10, R('Bedroom', 'bedroom'))), porches: p.porch === 'none' ? [] : [{ side: 'S', depth: 6, type: 'deck', covered: false }] }],
+    levels: [{ name: 'Main Floor', node: X(flex(1, R('Living', 'great_room', { ceiling: 'vaulted' })), fixed(8, Y(flex(1, R('Kitchen', 'kitchen', { kitchen: { shape: 'single_wall' } })), fixed(6.5, R('Bath', 'bath', { bath: { bathing: 'shower' } })))), fixed(10, R('Bedroom', 'bedroom'))), porches: p.porch === 'none' ? [] : [{ side: 'S', depth: 6, type: 'deck', covered: false }] }],
     roof: { form: 'shed', pitch: 3, overhang: 1.5, rake: 1 },
     style: { preset: 'tiny', wall: 'vertical_wood', wallColor: '#b48a62', trimColor: '#2b2b2b', roofMaterial: 'standing_seam', roofColor: '#3a3d40', windows: 'modern', grilles: 'none', windowColor: '#2b2b2b', doorColor: '#2b2b2b', foundation: 'crawl' },
   };

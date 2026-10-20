@@ -1,9 +1,10 @@
 import type { Issue } from '../model/issues';
+import { type ResolvedFixture, resolveFixtures } from '../geometry/fixtures';
 import { type ResolvedChimney, resolveChimney } from '../geometry/chimney';
 import type { Level, Project, Room, Side } from '../model/schema';
 import { isEnclosed, isOutdoor } from '../model/schema';
 import { type ResolvedOpening, type RoomEdge, resolveOpenings, roomEdges } from '../geometry/openings';
-import { type Box, type MultiPoly, type Ring, boxMulti, decomposeRects, multiArea, multiBox, ringArea, ringBox, roomRing, union } from '../geometry/polygon';
+import { type Box, type MultiPoly, type Ring, boxMulti, decomposeRects, largestRect, multiArea, multiBox, ringArea, ringBox, roomRing, union } from '../geometry/polygon';
 import { type RoofLevelInput, type RoofResult, buildRoof, roofPeak } from '../geometry/roof';
 import { type ResolvedStair, resolveStair } from '../geometry/stairs';
 import { type WallSeg, deriveWalls, enclosedFootprint } from '../geometry/walls';
@@ -29,6 +30,8 @@ export interface RoomInfo {
   edges: RoomEdge[];
   /** Thickness of the wall on each side (0 when open). */
   sideWall: Record<Side, number>;
+  /** Clear floor inside the wall faces (the biggest rectangle, for L-shaped rooms). */
+  inner: Box;
 }
 
 export interface ResolvedLevel {
@@ -42,6 +45,7 @@ export interface ResolvedLevel {
   plate: number;
   walls: WallSeg[];
   openings: ResolvedOpening[];
+  fixtures: ResolvedFixture[];
   stairs: ResolvedStair[];
   /** Outside-face footprint of the enclosed rooms. */
   footprint: MultiPoly;
@@ -97,6 +101,7 @@ export function resolve(project: Project): Resolved {
       plate: elevation + height + PLATE_ABOVE_CEILING,
       walls,
       openings,
+      fixtures: resolveFixtures(level, rooms, elevation),
       stairs: [],
       footprint,
       rooms,
@@ -178,7 +183,9 @@ function roomInfo(room: Room, walls: WallSeg[]): RoomInfo {
   const clearW = box.x1 - box.x0 - sideWall.W / 2 - sideWall.E / 2;
   const clearD = box.y1 - box.y0 - sideWall.S / 2 - sideWall.N / 2;
   const perimeterLoss = edges.reduce((s, e) => s + ((e.b - e.a) * sideWall[e.side]) / 2, 0);
-  return { room, ring, box, area, clearW, clearD, netArea: Math.max(0, area - perimeterLoss), edges, sideWall };
+  const core = room.rect ? box : (largestRect([[ring]]) ?? box);
+  const inner = { x0: core.x0 + sideWall.W / 2, x1: core.x1 - sideWall.E / 2, y0: core.y0 + sideWall.S / 2, y1: core.y1 - sideWall.N / 2 };
+  return { room, ring, box, area, clearW, clearD, netArea: Math.max(0, area - perimeterLoss), edges, sideWall, inner };
 }
 
 /** Find which room on a level contains a plan point. */

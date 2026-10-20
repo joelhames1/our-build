@@ -82,7 +82,7 @@ export const Scene = forwardRef<SceneHandle, SceneProps>(function Scene(props, r
 
   return (
     <Canvas
-      shadows
+      shadows="percentage"
       dpr={testMode ? 1 : [1, 1.75]}
       gl={{ antialias: true, preserveDrawingBuffer: true, toneMapping: THREE.AgXToneMapping, toneMappingExposure: 1.05 }}
       camera={{ fov: 38, near: 0.2, far: 5000, position: [cx + radius * 0.9, radius * 0.55, -cy + radius * 1.1] }}

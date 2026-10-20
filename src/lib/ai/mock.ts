@@ -11,6 +11,7 @@ import { resolve } from '@/core/resolve';
 import { checkRules } from '@/core/rules';
 import type { TemplateId, TemplateParams } from '@/core/templates/params';
 import { describeOp } from './describe';
+import { withBrief } from '@/core/ai/brief';
 
 /**
  * Demo mode: a small rule-based interpreter that turns common requests into ops. It drives the
@@ -30,7 +31,7 @@ export async function runMockTurn(req: DesignRequest, emit: (e: DesignEvent) => 
     return;
   }
 
-  let project = req.project;
+  let project = withBrief(req);
   const changes: string[] = [];
   // Apply in small groups so the model visibly assembles.
   const groups = plan.groups ?? [plan.ops];
@@ -135,7 +136,7 @@ export function planFromBrief(brief: string): Plan {
   const roof = roofFrom(t);
   if (roof) ops.push(roof);
   const name = nameFrom(t, template, site.setting);
-  ops.push({ op: 'set_name', name }, { op: 'note', add: brief.trim().slice(0, 200) });
+  ops.push({ op: 'set_name', name });
   const reply = `Here's a first sketch of your ${name.toLowerCase()}: ${describeTemplate(template, params)}. Tap anything to change it, or tell me what to try next.`;
   return { ops, groups: [ops.slice(0, 1), ops.slice(1)], reply };
 }

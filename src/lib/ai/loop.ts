@@ -12,6 +12,7 @@ import { resolve } from '@/core/resolve';
 import { checkRules } from '@/core/rules';
 import { designSummary } from '@/core/summary';
 import { describeOp } from './describe';
+import { withBrief } from '@/core/ai/brief';
 
 export const MODEL = process.env.OUR_BUILD_MODEL || 'claude-opus-5-5';
 const MAX_CALLS = 8;
@@ -27,10 +28,10 @@ const TOOLS = [
  */
 export async function runDesignTurn(req: DesignRequest, emit: (e: DesignEvent) => void, signal?: AbortSignal): Promise<void> {
   const client = new Anthropic();
-  let project = req.project;
+  let project = withBrief(req);
   const changes: string[] = [];
   const usage: Usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
-  const messages: BetaMessageParam[] = [{ role: 'user', content: buildUserMessage(req, resolve(project)) }];
+  const messages: BetaMessageParam[] = [{ role: 'user', content: buildUserMessage({ ...req, project }, resolve(project)) }];
   let rejectedInARow = 0;
   let reply = '';
   let jsonRetries = 0;

@@ -1,7 +1,7 @@
 import type { V3 } from '@/core/geometry/faces';
 import type { ResolvedOpening } from '@/core/geometry/openings';
 import { pointInMulti, roomRing } from '@/core/geometry/polygon';
-import { PORCH_BEAM } from '@/core/geometry/roof';
+import { porchFrame } from '@/core/geometry/porch';
 import { MULLION } from '@/core/catalog/openings';
 import type { Project } from '@/core/model/schema';
 import { isDoorType, isOutdoor } from '@/core/model/schema';
@@ -219,40 +219,9 @@ function railings(batch: BoxBatch, rl: ResolvedLevel, cut?: number) {
 }
 
 function porchPosts(batch: BoxBatch, rl: ResolvedLevel, res: Resolved, cut?: number) {
-  const outdoor = rl.level.rooms.filter((r) => isOutdoor(r.type));
-  for (const r of outdoor) {
-    if (!r.covered) continue;
-    const ring = roomRing(r);
-    const floor = rl.elevation - 0.33;
-    const beam = cut !== undefined ? Math.min(floor + PORCH_BEAM, rl.elevation + cut) : floor + PORCH_BEAM;
-    for (let i = 0; i < ring.length; i++) {
-      const [x1, y1] = ring[i];
-      const [x2, y2] = ring[(i + 1) % ring.length];
-      const len = Math.hypot(x2 - x1, y2 - y1);
-      const mx = (x1 + x2) / 2;
-      const my = (y1 + y2) / 2;
-      const dx = (x2 - x1) / len;
-      const dy = (y2 - y1) / len;
-      // Outward is right of travel for counter-clockwise rings.
-      const probe: [number, number] = [mx + dy * 0.3, my - dx * 0.3];
-      if (pointInMulti(probe, rl.footprint)) continue;
-      const neighborPorch = outdoor.some((o) => o !== r && pointInRing(probe, roomRing(o)));
-      if (neighborPorch) continue;
-      // Inward (into the porch) is left of travel for counter-clockwise rings.
-      const ix = -dy;
-      const iy = dx;
-      const inset = 0.35;
-      const n = Math.max(1, Math.ceil(len / 8));
-      for (let k = 0; k <= n; k++) {
-        const along = k === 0 ? inset : k === n ? len - inset : (len * k) / n;
-        const cx = x1 + dx * along + ix * inset;
-        const cy = y1 + dy * along + iy * inset;
-        batch.add('trim', r.id, [cx, cy, (floor + beam) / 2], [0.5, 0.5, beam - floor]);
-      }
-      if (cut === undefined) batch.add('trim', r.id, [mx + ix * inset, my + iy * inset, beam - 0.35], Math.abs(dx) > 0.5 ? [len, 0.5, 0.7] : [0.5, len, 0.7]);
-    }
-  }
   void res;
+  for (const { owner, posts, beams } of porchFrame(rl, cut))
+    for (const b of [...posts, ...beams]) batch.add('trim', owner, [(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, (b.z0 + b.z1) / 2], [b.x1 - b.x0, b.y1 - b.y0, b.z1 - b.z0]);
 }
 
 function pointInRing([px, py]: [number, number], ring: [number, number][]) {

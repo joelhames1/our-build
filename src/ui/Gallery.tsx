@@ -50,7 +50,12 @@ export function Gallery() {
               <div key={p.id} className="group relative overflow-hidden rounded-3xl border border-line bg-white/70 shadow-[0_10px_40px_-25px_rgba(35,33,30,0.5)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_50px_-25px_rgba(35,33,30,0.55)]">
                 <Link href={`/p/${p.id}`} className="block">
                   <div className="aspect-[16/10] bg-[linear-gradient(#e9eef1,#dfe4dc)]">
-                    {p.thumbnail ? <img src={p.thumbnail} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-muted"><Logo className="h-12 w-12 opacity-30" /></div>}
+                    {p.thumbnail ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- small data-URL thumbnails
+                      <img src={p.thumbnail} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-muted"><Logo className="h-12 w-12 opacity-30" /></div>
+                    )}
                   </div>
                   <div className="flex items-baseline justify-between px-5 py-4">
                     <div>

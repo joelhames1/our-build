@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 interface Recognition {
   lang: string;
@@ -17,6 +17,8 @@ interface Recognition {
 
 type Ctor = new () => Recognition;
 
+const noop = () => () => {};
+
 const getCtor = (): Ctor | null => {
   if (typeof window === 'undefined') return null;
   const w = window as unknown as { SpeechRecognition?: Ctor; webkitSpeechRecognition?: Ctor };
@@ -28,7 +30,7 @@ const getCtor = (): Ctor | null => {
  * continuous mode). Interim text streams through onText(text, false); the final through (text, true).
  */
 export function useSpeech(onText: (text: string, final: boolean) => void) {
-  const [supported, setSupported] = useState(false);
+  const supported = useSyncExternalStore(noop, () => !!getCtor(), () => false);
   const [listening, setListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const rec = useRef<Recognition | null>(null);
@@ -37,9 +39,6 @@ export function useSpeech(onText: (text: string, final: boolean) => void) {
   useEffect(() => {
     cb.current = onText;
   }, [onText]);
-  useEffect(() => {
-    setSupported(!!getCtor());
-  }, []);
 
   const stop = useCallback(() => {
     rec.current?.stop();

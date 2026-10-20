@@ -17,10 +17,9 @@ const VIEWS: { id: ViewMode; label: string; icon: React.ComponentType<{ classNam
 export function TopBar({ onExport }: { onExport: () => void }) {
   const { meta, project, view, level, render, hour, panel, set, rename } = useStudio();
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(meta?.name ?? '');
+  const [name, setName] = useState('');
   const [sunOpen, setSunOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  useEffect(() => setName(project?.name ?? meta?.name ?? ''), [project?.name, meta?.name]);
   useEffect(() => {
     if (editing) inputRef.current?.select();
   }, [editing]);
@@ -46,7 +45,12 @@ export function TopBar({ onExport }: { onExport: () => void }) {
             className="h-10 w-52 rounded-xl bg-white/80 px-3 font-serif text-lg text-ink outline-none"
           />
         ) : (
-          <button onClick={() => setEditing(true)} className="h-10 max-w-[46vw] truncate rounded-xl px-3 font-serif text-lg text-ink transition hover:bg-white/60 md:max-w-xs" title="Rename">
+          <button
+            onClick={() => {
+              setName(project?.name ?? meta?.name ?? '');
+              setEditing(true);
+            }}
+            className="h-10 max-w-[46vw] truncate rounded-xl px-3 font-serif text-lg text-ink transition hover:bg-white/60 md:max-w-xs" title="Rename">
             {project?.name ?? meta?.name ?? ''}
           </button>
         )}

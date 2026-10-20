@@ -35,52 +35,31 @@ export function ExportDialog({ resolved, sceneRef, onClose }: { resolved: Resolv
     }
   }
 
+  async function go(kind: 'pdf' | 'dxf' | 'png' | 'glb') {
+    await run(kind, async () => {
+      const scene = sceneRef.current;
+      if (kind === 'pdf') {
+        const { exportPdf } = await import('@/export/pdf');
+        download(await exportPdf(resolved, { paper, snapshot: scene?.snapshot() ?? null }), `${name}-plans.pdf`);
+      } else if (kind === 'dxf') {
+        const { exportDxf } = await import('@/export/dxf');
+        download(new Blob([exportDxf(resolved)], { type: 'application/dxf' }), `${name}.dxf`);
+      } else if (kind === 'png') {
+        const url = scene?.snapshot();
+        if (url) download(url, `${name}.png`);
+      } else {
+        const blob = await scene?.exportGLB();
+        if (blob) download(blob, `${name}.glb`);
+      }
+    });
+  }
+
   const items = [
-    {
-      id: 'pdf',
-      icon: FileText,
-      title: 'Plan set (PDF)',
-      text: 'Cover, floor plans, elevations, a section and schedules on titled sheets.',
-      go: () =>
-        run('pdf', async () => {
-          const { exportPdf } = await import('@/export/pdf');
-          download(await exportPdf(resolved, { paper, snapshot: sceneRef.current?.snapshot() ?? null }), `${name}-plans.pdf`);
-        }),
-    },
-    {
-      id: 'dxf',
-      icon: FileDown,
-      title: 'CAD drawings (DXF)',
-      text: 'Plans and elevations for AutoCAD, SketchUp and friends.',
-      go: () =>
-        run('dxf', async () => {
-          const { exportDxf } = await import('@/export/dxf');
-          download(new Blob([exportDxf(resolved)], { type: 'application/dxf' }), `${name}.dxf`);
-        }),
-    },
-    {
-      id: 'png',
-      icon: FileImage,
-      title: 'Picture (PNG)',
-      text: 'A snapshot of the current view.',
-      go: () =>
-        run('png', async () => {
-          const url = sceneRef.current?.snapshot();
-          if (url) download(url, `${name}.png`);
-        }),
-    },
-    {
-      id: 'glb',
-      icon: Box,
-      title: '3D model (GLB)',
-      text: 'The house as a 3D file for Blender, SketchUp or AR viewers.',
-      go: () =>
-        run('glb', async () => {
-          const blob = await sceneRef.current?.exportGLB();
-          if (blob) download(blob, `${name}.glb`);
-        }),
-    },
-  ];
+    { id: 'pdf', icon: FileText, title: 'Plan set (PDF)', text: 'Cover, floor plans, elevations, a section and schedules on titled sheets.' },
+    { id: 'dxf', icon: FileDown, title: 'CAD drawings (DXF)', text: 'Plans and elevations for AutoCAD, SketchUp and friends.' },
+    { id: 'png', icon: FileImage, title: 'Picture (PNG)', text: 'A snapshot of the current view.' },
+    { id: 'glb', icon: Box, title: '3D model (GLB)', text: 'The house as a 3D file for Blender, SketchUp or AR viewers.' },
+  ] as const;
 
   return (
     <div className="pointer-events-auto absolute inset-0 z-40 flex items-center justify-center bg-ink/20 p-4 backdrop-blur-sm" onClick={onClose}>
@@ -93,7 +72,7 @@ export function ExportDialog({ resolved, sceneRef, onClose }: { resolved: Resolv
         </div>
         <div className="space-y-2">
           {items.map((it) => (
-            <button key={it.id} onClick={it.go} disabled={!!busy} className="flex w-full items-start gap-4 rounded-2xl border border-line bg-white/70 p-4 text-left transition hover:border-accent/50 hover:bg-white disabled:opacity-60" data-testid={`export-${it.id}`}>
+            <button key={it.id} onClick={() => go(it.id)} disabled={!!busy} className="flex w-full items-start gap-4 rounded-2xl border border-line bg-white/70 p-4 text-left transition hover:border-accent/50 hover:bg-white disabled:opacity-60" data-testid={`export-${it.id}`}>
               <it.icon className="mt-0.5 h-6 w-6 shrink-0 text-accent" />
               <span>
                 <span className="block font-medium text-ink">{busy === it.id ? 'Preparing…' : it.title}</span>

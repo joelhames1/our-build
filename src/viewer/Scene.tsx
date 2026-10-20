@@ -202,7 +202,9 @@ export function frameCamera(c: CameraControls | null, resolved: Resolved, view: 
   const fx = fx0 * Math.cos(ang) - fy0 * Math.sin(ang);
   const fy = fx0 * Math.sin(ang) + fy0 * Math.cos(ang);
   // Back off far enough for both the footprint and the height, with room for the floating UI.
-  const dist = Math.max(span * 1.45 + 22, resolved.peak * 2.6 + 12);
+  // On a tall, narrow screen (an iPad held upright) the width is what runs out first.
+  const aspect = (c.camera as THREE.PerspectiveCamera).aspect || 1.5;
+  const dist = Math.max(span * 1.45 + 22, resolved.peak * 2.6 + 12) * Math.min(2, Math.max(1, 1.4 / aspect));
   const height = view === 'dollhouse' ? dist * 0.95 : Math.max(resolved.peak * 0.8, dist * 0.3);
   const targetZ = view === 'dollhouse' ? 2 : resolved.peak * 0.42;
   c.setLookAt(cx + fx * dist * 0.8, height, -(cy + fy * dist * 0.8), cx, targetZ, -cy, animate);

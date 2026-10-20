@@ -1,3 +1,4 @@
+import { withBrief } from '@/core/ai/brief';
 import type { DesignEvent, DesignRequest } from '@/core/ai/types';
 import type { Issue } from '@/core/model/issues';
 import type { Level, Project, Room, RoomType, Side, Site, Style } from '@/core/model/schema';
@@ -10,8 +11,8 @@ import type { OpInput } from '@/core/ops/schema';
 import { resolve } from '@/core/resolve';
 import { checkRules } from '@/core/rules';
 import type { TemplateId, TemplateParams } from '@/core/templates/params';
+import { ftIn } from '@/core/model/units';
 import { describeOp } from './describe';
-import { withBrief } from '@/core/ai/brief';
 
 /**
  * Demo mode: a small rule-based interpreter that turns common requests into ops. It drives the
@@ -25,7 +26,7 @@ export async function runMockTurn(req: DesignRequest, emit: (e: DesignEvent) => 
   const plan = empty || req.mode === 'create' ? planFromBrief(req.request) : planEdit(text, req);
 
   if (!plan.ops.length) {
-    const reply = plan.reply ?? "I'm running in demo mode right now, so I only understand simpler requests, like \"add a bedroom off the hall\", \"make the kitchen bigger\", \"add a third story\", \"move the sink to the island\", or \"change the roof to a hip roof\". Connect the Claude API to talk to me freely.";
+    const reply = (typeof plan.reply === 'function' ? plan.reply(req.project) : plan.reply) ?? "I'm running in demo mode right now, so I only understand simpler requests, like \"add a bedroom off the hall\", \"make the kitchen bigger\", \"add a third story\", \"move the sink to the island\", or \"change the roof to a hip roof\". Connect the Claude API to talk to me freely.";
     await streamText(reply, emit, delay / 10);
     emit({ type: 'done', project: req.project, reply, changes: [], issues: [], engine: 'mock' });
     return;
@@ -50,11 +51,11 @@ export async function runMockTurn(req: DesignRequest, emit: (e: DesignEvent) => 
     }
     project = r.project;
     changes.push(...r.log);
-    emit({ type: 'project', project, log: r.log });
+    emit({ type: 'project', project, log: r.log, renamed: r.renamed });
   }
   const res = resolve(project);
   const issues: Issue[] = [...res.issues, ...checkRules(res)];
-  const reply = plan.reply ?? friendly(changes);
+  const reply = typeof plan.reply === 'function' ? plan.reply(project) : (plan.reply ?? friendly(changes));
   await streamText(reply, emit, delay / 10);
   emit({ type: 'done', project, reply, changes, issues, engine: 'mock' });
 }
@@ -75,7 +76,8 @@ function friendly(changes: string[]): string {
 interface Plan {
   ops: OpInput[];
   groups?: OpInput[][];
-  reply?: string;
+  /** What to say; a function gets the finished design. */
+  reply?: string | ((p: Project) => string);
 }
 
 // --- creating from a brief ------------------------------------------------------------------------
@@ -120,7 +122,8 @@ export function planFromBrief(brief: string): Plan {
   if (sq) params.area = Math.min(8000, Math.max(200, Number(sq[1].replace(/,/g, ''))));
 
   const site: Partial<Site> = {};
-  if (has(/island/)) Object.assign(site, { setting: 'island', water: ['N', 'E', 'S', 'W'], trees: 'many' });
+  // An island site, not a kitchen island.
+  if (has(/\bon (an? |the )?((little|small|tiny|private|rocky) )?island\b|\bisland (cottage|cabin|house|home|retreat|getaway)\b/)) Object.assign(site, { setting: 'island', water: ['N', 'E', 'S', 'W'], trees: 'many' });
   else if (has(/lake|pond|river/)) Object.assign(site, { setting: 'lakefront', water: ['N'] });
   else if (has(/beach|ocean|coast|sea/)) Object.assign(site, { setting: 'coast', water: ['N'], ground: 'sand' });
   else if (has(/forest|woods|pines|trees/)) Object.assign(site, { setting: 'forest', trees: 'many' });
@@ -137,12 +140,13 @@ export function planFromBrief(brief: string): Plan {
   if (roof) ops.push(roof);
   const name = nameFrom(t, template, site.setting);
   ops.push({ op: 'set_name', name });
-  const reply = `Here's a first sketch of your ${name.toLowerCase()}: ${describeTemplate(template, params)}. Tap anything to change it, or tell me what to try next.`;
+  const reply = (p: Project) => `Here's a first sketch of your ${name.toLowerCase().replace(/^the /, '')}: ${describeTemplate(template, params, p)}. Tap anything to change it, or tell me what to try next.`;
   return { ops, groups: [ops.slice(0, 1), ops.slice(1)], reply };
 }
 
-function describeTemplate(t: TemplateId, p: TemplateParams): string {
-  const beds = p.bedrooms !== undefined ? `${p.bedrooms} bedroom${p.bedrooms === 1 ? '' : 's'}` : 'a couple of bedrooms';
+function describeTemplate(t: TemplateId, p: TemplateParams, built: Project): string {
+  const n = built.levels.reduce((s, l) => s + l.rooms.filter((r) => BEDROOM_TYPES.has(r.type)).length, 0);
+  const beds = n === 0 ? 'an open sleeping area' : `${n === 1 ? 'one' : n} bedroom${n === 1 ? '' : 's'}`;
   const porch = p.porch === 'wrap' ? ' and a wraparound porch' : p.porch === 'none' ? '' : p.porch ? ' and a porch' : '';
   const kind: Record<TemplateId, string> = {
     cottage: 'a cozy cottage plan',
@@ -451,7 +455,11 @@ export function planEdit(t: string, req: DesignRequest): Plan {
       const o = p.levels.flatMap((l) => l.openings).find((x) => x.id === req.selection!.id);
       const res = resolve(p);
       const ro = res.levels.flatMap((l) => l.openings).find((x) => x.id === req.selection!.id);
-      if (o && ro) return { ops: [{ op: 'update_opening', opening: o.id, width: Math.max(1.5, ro.unitWidth + (grow ? 1 : -1)), height: Math.max(2, ro.height + (grow ? 0.5 : -0.5)) }] };
+      if (o && ro) {
+        const width = Math.max(1.5, ro.unitWidth + (grow ? 1 : -1));
+        const height = Math.max(2, ro.height + (grow ? 0.5 : -0.5));
+        return { ops: [{ op: 'update_opening', opening: o.id, width, height }], reply: `I made the ${req.selection.label.toLowerCase()} ${grow ? 'bigger' : 'smaller'}: it's now ${ftIn(width)} wide and ${ftIn(height)} tall.` };
+      }
     }
     const r = findRoom(ctx, t);
     if (r) {

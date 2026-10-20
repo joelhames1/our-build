@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { BetaContentBlock, BetaMessageParam, BetaToolResultBlockParam, BetaToolUnion } from '@anthropic-ai/sdk/resources/beta/messages/messages';
+import { withBrief } from '@/core/ai/brief';
 import { inspect } from '@/core/ai/inspect';
 import { buildUserMessage } from '@/core/ai/message';
 import { SYSTEM_PROMPT } from '@/core/ai/systemPrompt';
@@ -12,7 +13,6 @@ import { resolve } from '@/core/resolve';
 import { checkRules } from '@/core/rules';
 import { designSummary } from '@/core/summary';
 import { describeOp } from './describe';
-import { withBrief } from '@/core/ai/brief';
 
 export const MODEL = process.env.OUR_BUILD_MODEL || 'claude-opus-5-5';
 const MAX_CALLS = 8;
@@ -127,9 +127,9 @@ export async function runDesignTurn(req: DesignRequest, emit: (e: DesignEvent) =
       if (!parsed.data.dryRun) {
         project = r.project;
         changes.push(...r.log);
-        emit({ type: 'project', project, log: r.log });
+        emit({ type: 'project', project, log: r.log, renamed: r.renamed });
       }
-      results.push({ type: 'tool_result', tool_use_id: tu.id, content: toolResultText(r.log, r.fixes, r.issues, designSummary(resolve(r.project), r.issues), !!parsed.data.dryRun) });
+      results.push({ type: 'tool_result', tool_use_id: tu.id, content: toolResultText([...r.log, ...Object.entries(r.renamed).map(([a, b]) => `(${a} now has the id ${b}.)`)], r.fixes, r.issues, designSummary(resolve(r.project), r.issues), !!parsed.data.dryRun) });
     }
     messages.push({ role: 'user', content: results });
     if (rejectedInARow >= 3) {

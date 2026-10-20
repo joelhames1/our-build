@@ -49,16 +49,21 @@ export function Studio({ id }: { id: string }) {
   const resolved = useMemo(() => (project && !isEmpty(project) ? resolve(project) : null), [project]);
 
   // Keep a small thumbnail of the latest design for the gallery.
-  const saveThumb = useCallback(() => {
+  const saveThumb = useCallback((delay = 900) => {
     setTimeout(async () => {
       const m = useStudio.getState().meta;
       const url = sceneRef.current?.snapshot();
       if (!url || !m) return;
       const thumb = await shrink(url, 640, 400);
       if (thumb) await (await getRepo()).update(m.id, { thumbnail: thumb });
-    }, 900);
+    }, delay);
   }, []);
-  useEffect(() => set({ onSaved: saveThumb }), [saveThumb, set]);
+  useEffect(() => set({ onSaved: () => saveThumb() }), [saveThumb, set]);
+  // A design opened without a thumbnail (the first sketch can finish before the 3D view is up) gets one once it has rendered.
+  const thumbless = !!resolved && !!meta && !meta.thumbnail;
+  useEffect(() => {
+    if (thumbless) saveThumb(2500);
+  }, [thumbless, saveThumb]);
 
   const onPick = useCallback(
     (owner: string | null) => {

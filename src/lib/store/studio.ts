@@ -113,7 +113,12 @@ export const useStudio = create<StudioState>((set, get) => ({
         { project: start, request: text, source, mode, selection: s.selection, history },
         (e) => {
           if (e.type === 'status') set((st) => ({ statuses: [...st.statuses.slice(-5), e.text] }));
-          else if (e.type === 'project') set({ project: parseProject(e.project) });
+          else if (e.type === 'project') {
+            // An edited automatic window gets a new id; keep talking about the same one.
+            const sel = get().selection;
+            const to = sel && e.renamed?.[sel.id];
+            set({ project: parseProject(e.project), ...(sel && to ? { selection: { ...sel, id: to } } : {}) });
+          }
           else if (e.type === 'text') set((st) => ({ liveReply: st.liveReply + e.text }));
           else if (e.type === 'done') {
             final = { project: parseProject(e.project), reply: e.reply, changes: e.changes, issues: e.issues };

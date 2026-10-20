@@ -53,7 +53,9 @@ function Overview({ res }: { res: Resolved }) {
       {res.levels.map((rl) => (
         <div key={rl.level.id}>
           <div className="mb-1.5 flex items-baseline justify-between">
-            <h3 className="font-serif text-lg text-ink">{rl.level.name}</h3>
+            <h3 className="font-serif text-lg text-ink" data-testid="level-name">
+              {rl.level.name}
+            </h3>
             <span className="text-xs text-muted">ceiling {ftIn(rl.level.ceiling)}</span>
           </div>
           <div className="divide-y divide-line/70 overflow-hidden rounded-2xl bg-white/60">

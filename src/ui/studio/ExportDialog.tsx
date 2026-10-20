@@ -1,7 +1,7 @@
 'use client';
 
 import { Box, FileDown, FileImage, FileText, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Resolved } from '@/core/resolve';
 import type { SceneHandle } from '@/viewer/Scene';
 
@@ -22,6 +22,12 @@ export function ExportDialog({ resolved, sceneRef, onClose }: { resolved: Resolv
   const [busy, setBusy] = useState<string | null>(null);
   const [paper, setPaper] = useState<'tabloid' | 'archd'>('tabloid');
   const name = slug(resolved.project.name);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   async function run(kind: string, fn: () => Promise<void>) {
     setBusy(kind);

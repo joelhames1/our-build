@@ -9,11 +9,16 @@ export async function streamDesign(body: DesignRequest, onEvent: (e: DesignEvent
     signal: opts.signal,
   });
   if (!res.ok || !res.body) {
-    let message = `The design service answered ${res.status}.`;
+    let message =
+      res.status === 504 || res.status === 502
+        ? 'The design assistant took too long to answer. Try again, or ask for a smaller change.'
+        : res.status >= 500
+          ? 'Something went wrong on the server. Your design is safe; try again in a moment?'
+          : `The design service answered ${res.status}.`;
     try {
       message = ((await res.json()) as { error?: string }).error ?? message;
     } catch {
-      // keep the generic message
+      // not JSON (a proxy or platform error page): keep the message above
     }
     onEvent({ type: 'error', message });
     return;

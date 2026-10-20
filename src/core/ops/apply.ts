@@ -24,6 +24,8 @@ export interface ApplyResult {
   fixes: string[];
   /** Guardrail findings on the resulting design. */
   issues: Issue[];
+  /** Elements that got a new id (an automatic window pinned by an edit): old id to new. */
+  renamed: Record<string, string>;
   error?: { index: number; op: string; message: string };
 }
 
@@ -32,6 +34,7 @@ class Draft {
   changed = new Set<string>();
   log: string[] = [];
   fixes: string[] = [];
+  renamed: Record<string, string> = {};
   constructor(public p: Project) {
     this.mint = new IdMint(p);
   }
@@ -82,11 +85,11 @@ export function applyOps(project: Project, rawOps: unknown[]): ApplyResult {
     const hard = res.issues.filter((i) => i.severity === 'error');
     if (hard.length) throw new OpError(hard.map((h) => h.message).join(' '));
     const issues = [...res.issues, ...checkRules(res)];
-    return { ok: true, project: reparsed.data, changed: [...draft.changed], log: draft.log, fixes: draft.fixes, issues };
+    return { ok: true, project: reparsed.data, changed: [...draft.changed], log: draft.log, fixes: draft.fixes, issues, renamed: draft.renamed };
   } catch (e) {
     if (!(e instanceof OpError)) throw e;
     const opName = index < rawOps.length ? String((rawOps[index] as { op?: string })?.op ?? '?') : 'result';
-    return { ok: false, project, changed: [], log: draft.log, fixes: [], issues: [], error: { index, op: opName, message: e.message } };
+    return { ok: false, project, changed: [], log: draft.log, fixes: [], issues: [], renamed: {}, error: { index, op: opName, message: e.message } };
   }
 }
 
@@ -338,12 +341,15 @@ function runOp(d: Draft, op: Op) {
       const wasAuto = o.auto;
       Object.assign(o, clean(rest), { auto: false });
       // Pinned auto openings get a permanent id so later regenerations leave them alone.
+      const what = `the ${o.type.replace('_', ' ')} in ${level.rooms.find((r) => r.id === o.room)?.name ?? o.room}`;
       if (wasAuto) {
         if (!level.suppress.includes(o.id)) level.suppress.push(o.id);
         const fresh = d.id(isWindowType(o.type) ? 'w' : isDoorType(o.type) ? 'd' : 'o');
-        d.log.push(`Updated ${opening} (now ${fresh}).`);
+        for (const [k, v] of Object.entries(d.renamed)) if (v === opening) d.renamed[k] = fresh;
+        d.renamed[opening] = fresh;
         o.id = fresh;
-      } else d.log.push(`Updated ${opening}.`);
+      }
+      d.log.push(`Updated ${what}.`);
       d.changed.add(o.id);
       return;
     }
@@ -469,9 +475,11 @@ function uniqueName(d: Draft, name: string, type: RoomType): { name: string; typ
   }
   if (type === 'bath' && /^primary bath/i.test(name) && all.some((r) => /^primary bath/i.test(r.name))) name = 'Bath';
   const taken = new Set(all.map((r) => r.name.toLowerCase()));
-  if (!taken.has(name.toLowerCase())) return { name, type };
   const base = name.replace(/\s+\d+$/, '');
-  let n = 2;
+  // Numbered siblings ("Bedroom 2", "Bedroom 3") mean a plain "Bedroom" joins the sequence.
+  const nums = [...taken].map((t) => (t.startsWith(`${base.toLowerCase()} `) ? Number(t.slice(base.length + 1)) : NaN)).filter((v) => Number.isInteger(v));
+  if (!taken.has(name.toLowerCase()) && !(name === base && nums.length)) return { name, type };
+  let n = Math.max(1, ...nums) + 1;
   while (taken.has(`${base} ${n}`.toLowerCase())) n++;
   return { name: `${base} ${n}`, type };
 }

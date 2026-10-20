@@ -34,7 +34,7 @@ export interface Usage {
 
 export type DesignEvent =
   | { type: 'status'; text: string }
-  | { type: 'project'; project: Project; log: string[] }
+  | { type: 'project'; project: Project; log: string[]; renamed?: Record<string, string> }
   | { type: 'text'; text: string }
   | { type: 'done'; project: Project; reply: string; changes: string[]; issues: Issue[]; usage?: Usage; engine: 'claude' | 'mock' }
   | { type: 'error'; message: string };

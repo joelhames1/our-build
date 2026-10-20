@@ -55,7 +55,7 @@ export function PlanView({ resolved, level, selected, onPick }: { resolved: Reso
           );
         })}
         {rl.fixtures.map((f) => (
-          <g key={f.id} onClick={(e) => (e.stopPropagation(), onPick(f.id))} style={{ cursor: 'pointer' }}>
+          <g key={f.id} onClick={(e) => (e.stopPropagation(), onPick(f.id))} style={{ cursor: 'pointer' }} data-kind="fixture" data-fixture={f.kind}>
             {fixtureSymbol(f).map((p, k) => <SymbolShape key={k} p={p} selected={selected === f.id} />)}
           </g>
         ))}
@@ -89,7 +89,7 @@ export function PlanView({ resolved, level, selected, onPick }: { resolved: Reso
               o.axis === 'x' ? <line key={k} x1={o.u0} x2={o.u1} y1={-(c + d)} y2={-(c + d)} stroke="#2d2a26" strokeWidth={0.07} /> : <line key={k} y1={-o.u0} y2={-o.u1} x1={c + d} x2={c + d} stroke="#2d2a26" strokeWidth={0.07} />,
             );
             return (
-              <g key={o.id} onClick={(e) => (e.stopPropagation(), onPick(o.id))} style={{ cursor: 'pointer' }}>
+              <g key={o.id} onClick={(e) => (e.stopPropagation(), onPick(o.id))} style={{ cursor: 'pointer' }} data-kind="window" data-id={o.id} data-width={(o.u1 - o.u0).toFixed(2)}>
                 {o.axis === 'x' ? <rect x={o.u0} y={-(c + t / 2)} width={o.u1 - o.u0} height={t} fill={selected === o.id ? '#f3dcc9' : '#fff'} /> : <rect x={c - t / 2} y={-o.u1} width={t} height={o.u1 - o.u0} fill={selected === o.id ? '#f3dcc9' : '#fff'} />}
                 {lines}
               </g>

@@ -769,10 +769,44 @@ function addLevel(d: Draft, op: Extract<Op, { op: 'add_level' }>) {
     d.log.push(`Added ${level.name} (empty).`);
     return;
   }
-  const foot = levelFootprint(below, (r) => isEnclosed(r.type));
+  let foot = levelFootprint(below, (r) => isEnclosed(r.type));
   const program = op.program?.length ? op.program : defaultProgram(multiArea(foot), op.kind);
+  // A long ranch doesn't need a whole second floor for a few bedrooms: build over part of it, around the stair.
+  const need = program.reduce((sum, r) => sum + (r.area ?? DEFAULT_AREA[r.type]), 0) * 1.3;
+  let partial = false;
+  if (op.footprint === 'same_as_below' && multiArea(foot) > need * 1.6) {
+    const part = partialFootprint(d, foot, need, p.levels.length - 2);
+    if (part) {
+      foot = part;
+      partial = true;
+    }
+  }
   planInto(d, level, foot, program, below, p.levels.length - 2);
-  d.log.push(`Added ${level.name} with ${level.rooms.filter((r) => r.type !== 'hall').map((r) => r.name).join(', ')}.`);
+  d.log.push(`Added ${level.name}${partial ? ` over part of ${below.name} (about ${Math.round(multiArea(foot) / 10) * 10} sf)` : ''} with ${level.rooms.filter((r) => r.type !== 'hall').map((r) => r.name).join(', ')}.`);
+}
+
+/** A full-depth slice of the floor below, long enough for `need` sf, centered on where the stairs arrive. */
+function partialFootprint(d: Draft, foot: ReturnType<typeof roomMulti>, need: number, belowIndex: number): ReturnType<typeof roomMulti> | null {
+  const fb = multiBox(foot);
+  const alongX = fb.x1 - fb.x0 >= fb.y1 - fb.y0;
+  const depth = alongX ? fb.y1 - fb.y0 : fb.x1 - fb.x0;
+  const lo = alongX ? fb.x0 : fb.y0;
+  const hi = alongX ? fb.x1 : fb.y1;
+  const len = snap(Math.max(24, need / depth));
+  if (len >= hi - lo - 6) return null;
+  const st = resolve(d.p).levels[belowIndex]?.stairs[0];
+  let start = lo + (hi - lo - len) / 2;
+  if (st) {
+    // Take in the stair and a landing at the top.
+    const a = (alongX ? st.footprint.x0 : st.footprint.y0) - 3;
+    const b = (alongX ? st.footprint.x1 : st.footprint.y1) + 3;
+    start = (a + b) / 2 - len / 2;
+    if (b - a > len) return null;
+  }
+  start = snap(Math.min(Math.max(start, lo), hi - len));
+  const box = alongX ? { x0: start, x1: start + len, y0: fb.y0, y1: fb.y1 } : { y0: start, y1: start + len, x0: fb.x0, x1: fb.x1 };
+  const part = intersection(foot, boxMulti(box));
+  return multiArea(part) >= need * 0.8 ? part : null;
 }
 
 const levelName = (i: number) => ['Main Floor', 'Upper Floor', 'Third Floor', 'Fourth Floor'][i] ?? `Level ${i + 1}`;

@@ -29,7 +29,12 @@ export function DevGallery() {
   const [level, setLevel] = useState(Number(params.get('level') ?? 0));
   const [hour, setHour] = useState(Number(params.get('hour') ?? 15));
   const [selected, setSelected] = useState<string | null>(null);
-  const resolved = useMemo(() => resolve((ALL[name] ?? ALL.sampleCottage)()), [name]);
+  // ?ops=[...] applies extra ops on top of the sample, for checking edits by eye.
+  const extra = params.get('ops');
+  const resolved = useMemo(() => {
+    const base = (ALL[name] ?? ALL.sampleCottage)();
+    return resolve(extra ? applyOps(base, JSON.parse(extra)).project : base);
+  }, [name, extra]);
   const testMode = params.get('test') === '1';
 
   return (

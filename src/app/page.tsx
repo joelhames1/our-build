@@ -1,5 +1,10 @@
+import { AuthGate } from '@/ui/AuthGate';
 import { Gallery } from '@/ui/Gallery';
 
 export default function Home() {
-  return <Gallery />;
+  return (
+    <AuthGate>
+      <Gallery />
+    </AuthGate>
+  );
 }

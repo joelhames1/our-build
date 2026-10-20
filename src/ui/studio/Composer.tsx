@@ -123,6 +123,7 @@ export function Composer() {
             <MessageCircle className="h-5 w-5" />
           </button>
           <MicButton
+            hotkey
             onText={(t, final) => {
               setText(t);
               setFromVoice(true);

@@ -807,6 +807,15 @@ function ensureStairs(d: Draft, level: Level, li: number) {
       const cy = (ls.footprint.y0 + ls.footprint.y1) / 2;
       host = level.rooms.find((r) => pointInMulti([cx, cy], roomMulti(r)));
       dir = lower.dir;
+      // Stacking only works if you can walk back past the opening to the foot of the next flight.
+      if (host && ls.shape === 'straight') {
+        const hb = roomBox(host);
+        const fp = ls.footprint;
+        const alongY = dir === 'N' || dir === 'S';
+        const pass = alongY ? Math.max(fp.x0 - hb.x0, hb.x1 - fp.x1) : Math.max(fp.y0 - hb.y0, hb.y1 - fp.y1);
+        const foot = dir === 'N' ? fp.y0 - hb.y0 : dir === 'S' ? hb.y1 - fp.y1 : dir === 'E' ? fp.x0 - hb.x0 : hb.x1 - fp.x1;
+        if (pass < 2.7 || foot < 0.2) host = undefined;
+      }
       if (host) {
         const fb = ls.footprint;
         at = dir === 'N' ? [cx, fb.y0] : dir === 'S' ? [cx, fb.y1] : dir === 'E' ? [fb.x0, cy] : [fb.x1, cy];
@@ -822,6 +831,8 @@ function ensureStairs(d: Draft, level: Level, li: number) {
     const shapes = (['straight', 'L', 'U'] as const).map((sh) => ({ sh, size: stairSize(sh, rl.floorToFloor, 3.5) }));
     const pick = (r: Room): { wall: Side; dir: Side; shape: 'straight' | 'L' | 'U' } | null => {
       const b = roomBox(r);
+      // Not where the stairs from below come up.
+      if (rl.stairHoles.some((h) => h.footprint.x0 < b.x1 && b.x0 < h.footprint.x1 && h.footprint.y0 < b.y1 && b.y0 < h.footprint.y1)) return null;
       const w = b.x1 - b.x0;
       const dd = b.y1 - b.y0;
       const walk = r.type === 'stair_hall' || r.type === 'foyer' ? 2.5 : 3;
@@ -880,13 +891,21 @@ function planInto(d: Draft, level: Level, foot: ReturnType<typeof roomMulti>, pr
   const D = fb.y1 - fb.y0;
   // Run the hall over the stairs (in the direction they climb) so you arrive into it.
   let axis: 'x' | 'y' = W >= D ? 'x' : 'y';
+  let hallAt: number | undefined;
+  const HW = stairBox ? 6.5 : HALL_W;
   if (stairBox) {
     const sx = stairBox.x1 - stairBox.x0;
     const sy = stairBox.y1 - stairBox.y0;
     axis = sy >= sx ? 'y' : 'x';
     through = axis === 'x' ? (stairBox.y0 + stairBox.y1) / 2 : (stairBox.x0 + stairBox.x1) / 2;
+    // Keep the stair opening against one side of the hall so the other side is a walkway past it
+    // (which also lets a flight to the next floor stack right on top). Pick the side nearer the middle.
+    const s0 = axis === 'x' ? stairBox.y0 : stairBox.x0;
+    const s1 = axis === 'x' ? stairBox.y1 : stairBox.x1;
+    const mid = axis === 'x' ? (fb.y0 + fb.y1) / 2 : (fb.x0 + fb.x1) / 2;
+    hallAt = [s0 - 0.25, s1 + 0.25 - HW].sort((a, b) => Math.abs(a + HW / 2 - mid) - Math.abs(b + HW / 2 - mid))[0];
   }
-  const { placed, hall } = packAlongHall(fb, program, { axis, through, mode: program.length >= 2 ? 'yes' : 'no', width: stairBox ? 6.5 : HALL_W });
+  const { placed, hall } = packAlongHall(fb, program, { axis, through, hallAt, mode: program.length >= 2 ? 'yes' : 'no', width: HW });
   for (const pl of placed) {
     const r = newRoom(d, pl.spec as never, snapRect(pl.rect));
     level.rooms.push(r);

@@ -8,6 +8,7 @@ import type { Resolved } from '@/core/resolve';
 import { Building } from './Building';
 import type { RenderMode } from './materials';
 import { Site } from './Site';
+import { WalkControls } from './walk/WalkControls';
 import { sunColor, sunDirection } from './sun';
 
 export type ViewMode = 'exterior' | 'dollhouse' | 'walk' | 'plan';
@@ -82,7 +83,7 @@ export const Scene = forwardRef<SceneHandle, SceneProps>(function Scene(props, r
       <color attach="background" args={['#e9eef1']} />
       <fog attach="fog" args={['#e4e9ec', radius * 3, radius * 9]} />
       <Sky distance={4500} sunPosition={sun.dir} turbidity={6} rayleigh={1.6} mieCoefficient={0.004} mieDirectionalG={0.85} />
-      <hemisphereLight args={['#f4f1ea', '#8a8f7a', mode === 'clay' ? 0.9 : 0.75]} />
+      <hemisphereLight args={['#f4f1ea', '#8a8f7a', (mode === 'clay' ? 0.9 : 0.75) + (view === 'walk' ? 0.35 : 0)]} />
       <directionalLight
         position={sunPos}
         intensity={mode === 'clay' ? 2.4 : 2.8}
@@ -111,11 +112,12 @@ export const Scene = forwardRef<SceneHandle, SceneProps>(function Scene(props, r
         mode={mode}
         cutLevel={view === 'dollhouse' ? level : undefined}
         doorsOpen={view === 'walk'}
-        onPick={props.onPick}
-        selected={props.selected}
+        onPick={view === 'walk' ? undefined : props.onPick}
+        selected={view === 'walk' ? null : props.selected}
       />
       <Site resolved={resolved} mode={mode} />
       {props.children}
+      {view === 'walk' && <WalkControls resolved={resolved} />}
       {view !== 'walk' && (
         <CameraControls
           ref={controls}
@@ -144,13 +146,23 @@ function Capture({ intoRef }: { intoRef: React.MutableRefObject<{ gl: THREE.WebG
 function AutoFrame({ controls, resolved, view, orbit }: { controls: React.RefObject<CameraControls | null>; resolved: Resolved; view: ViewMode; orbit?: number }) {
   const key = `${resolved.project.name}|${view}|${orbit ?? 0}`;
   const last = useRef('');
+  const get = useThree((t) => t.get);
   useEffect(() => {
     if (last.current === key) return;
     last.current = key;
+    if (view !== 'walk') {
+      // Back from walking: restore the normal lens.
+      const cam = get().camera as THREE.PerspectiveCamera;
+      if (cam.fov !== 38) {
+        cam.fov = 38;
+        cam.near = 0.2;
+        cam.updateProjectionMatrix();
+      }
+    }
     // Wait a frame for controls to mount.
     const id = requestAnimationFrame(() => frameCamera(controls.current, resolved, view, false, orbit));
     return () => cancelAnimationFrame(id);
-  }, [key, controls, resolved, view, orbit]);
+  }, [key, controls, resolved, view, orbit, get]);
   return null;
 }
 

@@ -24,7 +24,8 @@ export function TopBar({ onExport }: { onExport: () => void }) {
     if (editing) inputRef.current?.select();
   }, [editing]);
   const levels = project?.levels ?? [];
-  const showLevels = (view === 'dollhouse' || view === 'plan' || view === 'walk') && levels.length > 1;
+  // Walking, the floor you're on shows in the walk HUD instead.
+  const showLevels = (view === 'dollhouse' || view === 'plan') && levels.length > 1;
 
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-wrap items-start justify-between gap-2 p-3 md:p-4">

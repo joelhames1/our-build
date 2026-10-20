@@ -111,6 +111,18 @@ export function resolveStair(s: Stair, level: Level, rise: number, inset = 0.25)
       if (ws === 'E') x0 -= 3;
       if (ws === 'S') y0 += 3;
       if (ws === 'N') y0 -= 3;
+    } else if (ws !== s.dir) {
+      // Running along a side wall: a 3' landing at the bottom, and any spare room left at the top.
+      const room0 = alongX ? rb.x0 : rb.y0;
+      const room1 = alongX ? rb.x1 : rb.y1;
+      const len = alongX ? fw : fd;
+      const slack = room1 - room0 - 2 * inset - len;
+      const bottom = Math.min(slack, 3);
+      const start = (alongX ? dx : dy) > 0 ? room0 + inset + bottom : room1 - inset - bottom - len;
+      if (slack > 0) {
+        if (alongX) x0 = start;
+        else y0 = start;
+      }
     }
   }
   const footprint: Box = { x0, y0, x1: x0 + fw, y1: y0 + fd };

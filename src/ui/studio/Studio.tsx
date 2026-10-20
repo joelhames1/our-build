@@ -16,6 +16,7 @@ import { DetailsPanel } from './DetailsPanel';
 import { ExportDialog } from './ExportDialog';
 import { PlanView } from './PlanView';
 import { TopBar } from './TopBar';
+import { WalkOverlay } from './WalkOverlay';
 
 const Scene = dynamic(() => import('@/viewer/Scene').then((m) => m.Scene), { ssr: false, loading: () => <Sketching text="Setting up the 3D view…" /> });
 
@@ -89,6 +90,7 @@ export function Studio({ id }: { id: string }) {
       {status === 'ready' && (
         <>
           <TopBar onExport={() => setExportOpen(true)} />
+          {view === 'walk' && resolved && <WalkOverlay resolved={resolved} />}
           <ChatPanel />
           <DetailsPanel resolved={resolved} />
           <Composer />

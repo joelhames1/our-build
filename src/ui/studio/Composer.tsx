@@ -150,6 +150,8 @@ function suggest(kind: string | undefined, label: string | undefined, empty: boo
   switch (kind) {
     case 'room':
       return ['Make this bigger', 'Vaulted ceiling here', 'Add a window'];
+    case 'standing':
+      return ['Make this room bigger', 'Add a window here', 'Vaulted ceiling here'];
     case 'opening':
       return ['Make this bigger', 'Remove it'];
     case 'wall':

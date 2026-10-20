@@ -129,6 +129,8 @@ export interface CorridorOptions {
   mode?: 'auto' | 'yes' | 'no';
   /** Hall width (wider where it carries a stair landing). */
   width?: number;
+  /** Preferred cross-axis start of the hall, e.g. flush with one side of a stair opening. */
+  hallAt?: number;
 }
 
 /**
@@ -149,12 +151,7 @@ export function packAlongHall<T extends PackRoom>(box: Box, rooms: T[], opts: Co
   const sub = (a: number, b: number): Box => (axis === 'x' ? { x0: box.x0, x1: box.x1, y0: a, y1: b } : { x0: a, x1: b, y0: box.y0, y1: box.y1 });
   const hallRect = (a: number): Rect => (axis === 'x' ? [box.x0, a, w, HW] : [a, box.y0, HW, d]);
 
-  if (depth >= 2 * 9 + HW) {
-    // Double-loaded: hall roughly in the middle, nudged to pass through the required point.
-    let h0 = snap(lo + (depth - HW) / 2);
-    if (opts.through !== undefined && (opts.through < h0 + 1 || opts.through > h0 + HW - 1)) {
-      h0 = snap(Math.min(Math.max(lo + 9, opts.through - HW / 2), hi - 9 - HW));
-    }
+  const twoSided = (h0: number) => {
     const sideA = sub(lo, h0);
     const sideB = sub(h0 + HW, hi);
     // Balance the two strips by area.
@@ -175,6 +172,26 @@ export function packAlongHall<T extends PackRoom>(box: Box, rooms: T[], opts: Co
       }
     }
     return { placed: [...row(sideA, stripOrder(A), axis), ...row(sideB, stripOrder(B), axis)], hall: hallRect(h0) };
+  };
+
+  if (depth >= 2 * 9 + HW) {
+    // Double-loaded: hall roughly in the middle, nudged to pass through the required point.
+    let h0 = snap(lo + (depth - HW) / 2);
+    if (opts.hallAt !== undefined) h0 = snap(Math.min(Math.max(lo + 9, opts.hallAt), hi - 9 - HW));
+    else if (opts.through !== undefined && (opts.through < h0 + 1 || opts.through > h0 + HW - 1)) {
+      h0 = snap(Math.min(Math.max(lo + 9, opts.through - HW / 2), hi - 9 - HW));
+    }
+    return twoSided(h0);
+  }
+  if (opts.hallAt !== undefined) {
+    // Too shallow for two full rows, but the hall has to be where it was asked (over a stair):
+    // shallower rooms on either side beat a hall that misses the stair.
+    let h0 = snap(Math.min(Math.max(lo, opts.hallAt), hi - HW));
+    if (h0 - lo < 6) h0 = lo;
+    if (hi - (h0 + HW) < 6) h0 = hi - HW;
+    if (h0 > lo && h0 + HW < hi) return twoSided(h0);
+    const strip = h0 === lo ? sub(lo + HW, hi) : sub(lo, hi - HW);
+    return { placed: row(strip, stripOrder(rooms), axis), hall: hallRect(h0) };
   }
   // Single-loaded: hall along the side nearest the required point (or the low side).
   const hallLow = opts.through === undefined ? false : opts.through - lo < hi - opts.through;

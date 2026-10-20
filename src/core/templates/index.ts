@@ -123,7 +123,10 @@ function build(plan: Plan, front: Side, base: { site: Site; style: Style; name: 
       const b = pc.to ?? (pc.side === 'N' || pc.side === 'S' ? fb.x1 : fb.y1);
       const rect: Rect =
         pc.side === 'S' ? [a, fb.y0 - pc.depth, b - a, pc.depth] : pc.side === 'N' ? [a, fb.y1, b - a, pc.depth] : pc.side === 'E' ? [fb.x1, a, pc.depth, b - a] : [fb.x0 - pc.depth, a, pc.depth, b - a];
-      rooms.push({ id: `r${++ctx.n}`, name: pc.name ?? (pc.type === 'deck' ? 'Deck' : pc.type === 'screened_porch' ? 'Screened Porch' : 'Porch'), type: pc.type ?? 'porch', rect, ceiling: 'flat', furnish: 'auto', covered: pc.covered ?? (pc.type !== 'deck' && pc.type !== 'patio') });
+      let name = pc.name ?? (pc.type === 'deck' ? 'Deck' : pc.type === 'screened_porch' ? 'Screened Porch' : 'Porch');
+      // Plans are drawn facing south, so a second porch is named for where it sits.
+      if (rooms.some((r) => r.name === name)) name = `${pc.side === 'S' ? 'Front' : pc.side === 'N' ? 'Back' : 'Side'} ${name}`;
+      rooms.push({ id: `r${++ctx.n}`, name, type: pc.type ?? 'porch', rect, ceiling: 'flat', furnish: 'auto', covered: pc.covered ?? (pc.type !== 'deck' && pc.type !== 'patio') });
     }
     const stairs: Stair[] = (lp.stairs?.(rooms) ?? []).map((s) => ({ ...s, id: `st${++ctx.st}` }) as Stair);
     const openings: Opening[] = (lp.openings?.(rooms) ?? []).map((o) => ({ ...o, id: `${o.type === 'window' || o.type === 'picture_window' ? 'w' : o.type === 'open' || o.type === 'cased_opening' ? 'o' : 'd'}${++openId}` }) as Opening);
@@ -227,7 +230,7 @@ const cottage: Gen = (p) => {
     const kind = p.stories === '2' ? 'full' : 'half';
     const up = Math.max(beds - mainBeds, 1);
     const east = up >= 2 ? flex(1, R('Bedroom 2', 'bedroom')) : flex(1, R('Reading Nook', 'loft'));
-    levels.push({ name: 'Upper Floor', kind, kneeWall: 3.5, node: X(fixed(Wp, R(up >= 2 ? 'Bedroom 1' : 'Bedroom', 'bedroom')), fixed(8, Y(flex(1, R('Hall', 'hall')), fixed(8, R('Bath', 'bath')))), east), box });
+    levels.push({ name: 'Upper Floor', kind, kneeWall: 3.5, node: X(fixed(Wp, R(up >= 2 ? 'Bedroom 1' : 'Bedroom', 'bedroom')), fixed(8, Y(flex(1, R('Hall', 'hall')), fixed(7, R('Bath', 'bath')))), east), box });
   }
   return {
     footprint: box,
@@ -253,7 +256,7 @@ const capeCod: Gen = (p) => {
     footprint: box,
     levels: [
       { name: 'Main Floor', node: X(flex(1, left), fixed(9, mid), flex(1, right)), stairs: (rooms) => [stairAlong(byTag(rooms, 'stair'), 'W', 'N')], porches: p.porch && p.porch !== 'none' ? [{ side: 'S', depth: 6, from: W / 2 - 7, to: W / 2 + 7 }] : [] },
-      { name: 'Upper Floor', kind: 'half', kneeWall: 3, ceiling: 8, node: X(flex(1, upWest), fixed(9, Y(flex(1, R('Hall', 'hall')), fixed(8, R('Bath', 'bath')))), flex(1, upEast)) },
+      { name: 'Upper Floor', kind: 'half', kneeWall: 3, ceiling: 8, node: X(flex(1, upWest), fixed(9, Y(flex(1, R('Hall', 'hall')), fixed(7, R('Bath', 'bath')))), flex(1, upEast)) },
     ],
     roof: { form: 'gable', pitch: 12, ridge: 'parallel_to_front', overhang: 0.75, rake: 0.5 },
     style: { preset: 'cape_cod', wall: 'shingle', wallColor: '#a9a196', trimColor: '#ffffff', roofMaterial: 'asphalt', roofColor: '#3d3d40', windows: 'double_hung', grilles: 'colonial', doorColor: '#7a2f2a', foundation: 'crawl' },
@@ -407,8 +410,11 @@ const modern: Gen = (p) => {
 
 const lakeHouse: Gen = (p) => {
   const { half } = bedsBaths(p, 3, 2.5);
-  const D = 28;
-  const W = snap(Math.max(38, Math.min(54, (p.area ?? 2200) / 2 / D + 4)));
+  // Deep enough for a straight stair in the entry with a landing at its foot.
+  const D = 31;
+  // Wide enough upstairs for the west stack, the hall, and a primary bath beside a real Bedroom 3.
+  const minW = (half ? 18 : 12) + 9 + 17;
+  const W = snap(Math.max(minW, Math.min(54, (p.area ?? 2200) / 2 / D + 4)));
   const box = { x0: 0, y0: 0, x1: W, y1: D };
   // The lake is behind (north): the great room and kitchen take the view.
   const front = X(fixed(12, R('Mudroom', 'mudroom')), fixed(half ? 6 : 0.01, R('Powder Room', 'half_bath')), fixed(9, R('Entry', 'stair_hall', { tag: 'stair' })), flex(1, R('Office', 'office')));
@@ -417,7 +423,7 @@ const lakeHouse: Gen = (p) => {
   return {
     footprint: box,
     levels: [
-      { name: 'Main Floor', node: Y(fixed(13, front), flex(1, back)), stairs: (rooms) => [stairAlong(byTag(rooms, 'stair'), 'W', 'N')], porches },
+      { name: 'Main Floor', node: Y(fixed(16, front), flex(1, back)), stairs: (rooms) => [stairAlong(byTag(rooms, 'stair'), 'W', 'N')], porches },
       {
         name: 'Upper Floor',
         kind: p.stories === '2' ? 'full' : 'half',
@@ -451,8 +457,16 @@ const garageStudio: Gen = (p) => {
   return {
     footprint: box,
     levels: [
-      { name: 'Garage Level', node: X(flex(1, R('Garage', 'garage')), fixed(5, R('Stair', 'stair_hall', { tag: 'stair' }))), stairs: (rooms) => [{ room: byTag(rooms, 'stair').id, shape: 'straight', dir: 'N', wall: 'E', width: 3.5 }] },
-      { name: 'Studio', node: X(flex(1, Y(flex(1.3, R('Studio', 'studio')), flex(1, R('Kitchen', 'kitchen', { kitchen: { shape: 'single_wall' } })))), fixed(9, Y(flex(1, R('Landing', 'hall')), fixed(8, R('Bath', 'bath', { bath: { bathing: 'shower' } }))))) },
+      // A stairwell along the side with storage behind it; the stair climbs toward the back.
+      { name: 'Garage Level', node: X(flex(1, R('Garage', 'garage')), fixed(5, Y(fixed(16.5, R('Stair', 'stair_hall', { tag: 'stair' })), flex(1, R('Storage', 'storage'))))), stairs: (rooms) => [{ room: byTag(rooms, 'stair').id, shape: 'straight', dir: 'N', wall: 'E', width: 3.5 }] },
+      // Upstairs you arrive at the back of the landing and step into the studio; kitchen and bath face the street.
+      {
+        name: 'Studio',
+        node: X(
+          flex(1, Y(flex(1, X(flex(1, R('Kitchen', 'kitchen', { kitchen: { shape: 'single_wall' } })), fixed(W - 5 >= 18 ? 8 : 5.5, R('Bath', 'bath', { bath: { bathing: 'shower' } })))), flex(1.3, R('Studio', 'studio')))),
+          fixed(5, Y(fixed(19, R('Landing', 'hall')), flex(1, R('Closet', 'closet')))),
+        ),
+      },
     ],
     roof: { form: 'gable', pitch: 9, ridge: 'perpendicular_to_front', overhang: 1, rake: 1 },
     style: { preset: 'carriage_house', wall: 'board_and_batten', wallColor: '#e9e5dc', trimColor: '#2c2c2c', roofMaterial: 'asphalt', roofColor: '#3b3b3e', windows: 'double_hung', grilles: 'colonial', foundation: 'slab' },

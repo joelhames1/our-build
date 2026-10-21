@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { useStudio } from '@/lib/store/studio';
 import type { ViewMode } from '@/viewer/Scene';
+import { AccountMenu } from '../AccountMenu';
 import { Logo } from '../Logo';
 
 const VIEWS: { id: ViewMode; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -107,6 +108,7 @@ export function TopBar({ onExport }: { onExport: () => void }) {
             <Download className="h-4 w-4" />
             <span className="hidden xl:inline">Export</span>
           </button>
+          <AccountMenu compact />
           {sunOpen && (
             <div className="absolute right-0 top-full mt-2 w-64 rounded-2xl glass p-4">
               <div className="mb-2 flex items-baseline justify-between text-sm text-ink-2">

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { getRepo } from '@/lib/store/repo';
 import type { ProjectMeta } from '@/lib/store/types';
-import { AccountBadge } from './AccountBadge';
+import { AccountMenu } from './AccountMenu';
 import { Logo } from './Logo';
 import { NewDesign } from './NewDesign';
 
@@ -31,7 +31,7 @@ export function Gallery() {
           <Logo className="h-8 w-8" />
           <span className="font-serif text-2xl tracking-tight">Our Build</span>
         </div>
-        <AccountBadge />
+        <AccountMenu />
       </header>
 
       <section className="mx-auto flex max-w-6xl flex-col items-center px-5 pb-10 pt-14 text-center md:px-8 md:pt-20">

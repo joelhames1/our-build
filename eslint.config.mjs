@@ -3,7 +3,7 @@ import next from 'eslint-config-next';
 const config = [
   ...next,
   {
-    ignores: ['.next/**', 'node_modules/**', 'eval-out/**', 'test-results/**', 'playwright-report/**'],
+    ignores: ['.next/**', '.next-accounts/**', 'node_modules/**', 'eval-out/**', 'test-results/**', 'playwright-report/**'],
   },
   {
     // The core is shared by the browser and the server: keep it free of React, DOM and three.js.

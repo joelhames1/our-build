@@ -10,7 +10,7 @@ Built for houses and small buildings: cottages, cabins, farmhouses, A-frames, bu
 - **Architectural common sense.** Rooms get doors, windows and furniture automatically; kitchens get a working layout (sink under a window, a sensible triangle, 42" aisles), baths get real clearances, stairs get legal risers and headroom. Guardrails flag the things worth a second look (a bedroom without an egress window, a cramped hall) with one-tap fixes.
 - **See it every way.** Exterior with materials, sun and site (lakes, islands, trees); a dollhouse cutaway; a walk-through with WASD/mouse or an on-screen joystick on the iPad; and a plan view where tapping anything selects it so "this" means something.
 - **Drawings that look like drawings.** Floor plans with poché walls, door swings, fixture symbols, dimensions and door/window marks; a roof plan; four elevations and two sections with hidden lines removed; door, window, room and area schedules; titled sheets with a cover. PDF on 11×17 or 24×36, and DXF (R12, inches, AIA layers) for CAD.
-- **Shared and safe.** Supabase sign-in for a household of two; every change is a version you can go back to.
+- **Shared and safe.** Invite-only accounts: sign in with Google or an email link, and an admin People page to invite (emails go out through Resend), pause, archive, restore and delete accounts, with an activity log. Every design change is a version you can go back to.
 
 Without an API key, a small rule-based demo assistant handles the common requests so everything else can be tried for free.
 
@@ -28,9 +28,11 @@ src/core/       Pure TypeScript, shared by browser and server
   ai/           System prompt, tool definitions, design summary
 src/drawings/   Drawing IR, plans, elevations, sections (hidden-line engine), schedules, sheets, SVG/PDF/DXF
 src/viewer/     React Three Fiber scene, materials, walk mode
-src/ui/         Home, studio, conversation bar, voice, panels, export dialog
-src/lib/        Store (Supabase or IndexedDB), AI tool loop and demo engine, server auth
-src/app/        Next.js routes, including /api/design (streams the AI turn as server-sent events)
+src/ui/         Home, studio, conversation bar, voice, panels, export dialog, sign-in, account menu, People admin
+src/lib/        Store (Supabase or IndexedDB), AI tool loop and demo engine, accounts (members gate, invites, admin actions, email)
+src/app/        Next.js routes: /api/design (streams the AI turn), sign-in (/login, /auth/*), /admin
+src/proxy.ts    Keeps the session cookie fresh and sends signed-out visitors to /login
+supabase/       SQL migrations (run in order)
 ```
 
 The design model is the single source of truth. The 3D view, the plan view, the drawing set and the AI's summary are all derived from it, so they never disagree.

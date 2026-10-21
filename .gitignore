@@ -10,3 +10,4 @@ test-results/
 playwright-report/
 eval-out/
 .DS_Store
+.next-accounts/
